@@ -1,312 +1,358 @@
-# `pkg/errs` — 結構化錯誤模組
+# `pkg/errs` — 視覺化架構指南
 
 ## 快速導覽
 
-- [概覽](#概覽)
-- [快速開始](#快速開始)
-- [Public API](#public-api)
-- [格式契約](#格式契約)
-- [Stack Trace 輸出格式](#stack-trace-輸出格式)
-- [模組結構](#模組結構)
-- [設計決策](#設計決策)
-- [測試](#測試)
-- [已知限制與注意事項](#已知限制與注意事項)
+- [Error 型別結構](#error-型別結構)
+- [建立與包裝流程](#建立與包裝流程)
+- [Error Chain 結構](#error-chain-結構)
+- [Stack Trace 捕獲機制](#stack-trace-捕獲機制)
+- [格式化輸出路由](#格式化輸出路由)
+- [FormatStack 與 Duck-Typing](#formatstack-與-duck-typing)
+- [跨模組零耦合架構](#跨模組零耦合架構)
+- [使用情境決策樹](#使用情境決策樹)
 
 ---
 
-## 概覽
+## Error 型別結構
 
-`pkg/errs` 提供帶有 **error code** 與自動捕獲 **stack trace** 的結構化錯誤型別，作為專案 error handling 的統一基礎設施。
+`Error` 結構體與其方法的完整面貌——包含實作的 interface 與對外提供的存取方式。
 
-| 能力 | 說明 |
-|------|------|
-| Error code | 每個 error 強制攜帶 code string（如 `"USER_NOT_FOUND"`） |
-| Stack trace | 建立 error 時自動捕獲 call stack，`%+v` 印出 Java-style trace |
-| Cause chain | 支援 `Wrap` 建立 error chain，stdlib `errors.Is` / `errors.As` 自動走訪 |
-| 下游整合 | `Code()` / `Message()` / `StackTrace()` / `FormatStack()` 提供結構化欄位，供 [`pkg/log`](../docs-plan/log-plan.md) 等下游直接消費 |
-| 零外部依賴 | 模組本體只使用 Go stdlib（測試使用 `testify`） |
+```mermaid
+classDiagram
+    class error {
+        <<interface>>
+        +Error() string
+    }
+
+    class fmtFormatter {
+        <<interface>>
+        +Format(f fmt.State, verb rune)
+    }
+
+    class Error {
+        -code : string
+        -message : string
+        -cause : error
+        -stack : Stack
+        +Code() string
+        +Message() string
+        +Error() string
+        +Unwrap() error
+        +StackTrace() Stack
+        +FormatStack() string
+        +Format(f fmt.State, verb rune)
+    }
+
+    class Frame {
+        +Function : string
+        +File : string
+        +Line : int
+    }
+
+    class Stack {
+        <<type alias>>
+        []Frame
+    }
+
+    error <|.. Error : 實作
+    fmtFormatter <|.. Error : 實作
+    Error *-- Stack : 持有
+    Stack *-- Frame : 包含 0..N 個
+```
+
+> **設計要點**：`Error` 的所有欄位皆為 unexported，只透過方法存取；`StackTrace()` 回傳防禦性複本，外部修改不影響原始值。
 
 [返回開頭](#快速導覽)
 
 ---
 
-## 快速開始
+## 建立與包裝流程
 
-### 建立根錯誤
+四個建構函式的輸入輸出與 `nil` 安全行為。
 
-```go
-import "golan-example/pkg/errs"
+```mermaid
+flowchart LR
+    subgraph 建立根錯誤
+        New["New(code, msg)"]
+        Newf["Newf(code, fmt, args...)"]
+    end
 
-err := errs.New("USER_NOT_FOUND", "user 12345 does not exist")
-// err.Error() → "[USER_NOT_FOUND] user 12345 does not exist"
+    subgraph 包裝既有錯誤
+        Wrap["Wrap(err, code, msg)"]
+        Wrapf["Wrapf(err, code, fmt, args...)"]
+    end
 
-err2 := errs.Newf("INVALID_FIELD", "field %s must be positive, got %d", "age", -1)
-// err2.Error() → "[INVALID_FIELD] field age must be positive, got -1"
+    New --> |"自動 capture stack"| E1["*Error\n（cause = nil）"]
+    Newf --> |"fmt.Sprintf + capture"| E1
+
+    Wrap --> NilCheck{err == nil?}
+    Wrapf --> NilCheck
+
+    NilCheck --> |"是"| Nil["回傳 nil"]
+    NilCheck --> |"否"| E2["*Error\n（cause = err）"]
+    E2 --> |"自動 capture stack"| E2
 ```
 
-### 包裝既有錯誤
-
-```go
-row := db.QueryRow(query, id)
-if err := row.Scan(&user); err != nil {
-    return errs.Wrap(err, "DB_QUERY_FAILED", "load user failed")
-}
-
-// Wrap(nil, ...) 安全回傳 nil，可直接寫在 return：
-return errs.Wrap(err, "DB_FAIL", "query failed")
-```
-
-### 檢查 error chain
-
-直接使用 stdlib `errors.Is` / `errors.As`，不需要額外的 helper：
-
-```go
-import "errors"
-
-if errors.Is(err, sql.ErrNoRows) {
-    // 處理特定 cause
-}
-
-var target *errs.Error
-if errors.As(err, &target) {
-    fmt.Println(target.Code())    // "DB_QUERY_FAILED"
-    fmt.Println(target.Message()) // "load user failed"
-}
-```
-
-### 印出完整 stack trace
-
-```go
-fmt.Printf("%+v\n", err)
-```
-
-輸出：
-
-```
-[DB_QUERY_FAILED] load user failed
-    at example/repository.(*UserRepo).FindByID (repository.go:41)
-    at example/service.(*UserService).GetUser (service.go:28)
-Caused by: sql: no rows in result set
-```
+> **Nil Guard**：`Wrap(nil, ...)` / `Wrapf(nil, ...)` 安全回傳 `nil`，讓呼叫端可以直接 `return errs.Wrap(err, ...)` 而不需額外判斷。
 
 [返回開頭](#快速導覽)
 
 ---
 
-## Public API
+## Error Chain 結構
 
-### 型別
-
-```go
-// Frame 代表 call stack 中的一個位置。
-type Frame struct {
-    Function string // 完整函式名稱，例如 "golan-example/pkg/errs_test.TestNew"
-    File     string // 原始碼檔案 basename，例如 "errs_test.go"
-    Line     int    // 原始碼行號
-}
-
-// Stack 代表建立 error 時捕獲的 call stack。
-type Stack []Frame
-
-// Error 代表帶有 error code 與 stack trace 的應用層錯誤。
-// 實作 error 與 fmt.Formatter interface。
-type Error struct { /* unexported fields */ }
-```
-
-### 建構函式
-
-| 函式 | 簽名 | 說明 |
-|------|------|------|
-| `New` | `New(code, message string) *Error` | 建立根錯誤；`code` 應為非空字串 |
-| `Newf` | `Newf(code, format string, args ...any) *Error` | 同 `New`，message 支援 `fmt.Sprintf` 插值 |
-| `Wrap` | `Wrap(err error, code, message string) *Error` | 包裝既有 error；`err == nil` 時回傳 `nil` |
-| `Wrapf` | `Wrapf(err error, code, format string, args ...any) *Error` | 同 `Wrap`，message 支援插值 |
-
-### 方法
-
-| 方法 | 回傳 | 說明 |
-|------|------|------|
-| `Code()` | `string` | 回傳 error code |
-| `Message()` | `string` | 回傳不帶 `[CODE]` prefix 的原始 message |
-| `StackTrace()` | `Stack` | 回傳 stack trace 的**防禦性複本**（結構化存取） |
-| `FormatStack()` | `string` | 回傳格式化 stack trace 字串（每行 `Function (File:Line)`，換行分隔）；回傳 stdlib 型別，適合 duck-typing 偵測 |
-| `Error()` | `string` | 回傳 `"[CODE] message"` 格式字串 |
-| `Unwrap()` | `error` | 回傳底層 cause，支援 `errors.Is` / `errors.As` 走訪 |
-| `Format()` | — | 實作 `fmt.Formatter`，支援 `%s` / `%v` / `%q` / `%+v` |
-
-> 所有方法皆 **nil receiver 安全**：對 `(*Error)(nil)` 呼叫不會 panic。
-
-### 介面靜態驗證
-
-```go
-var _ error         = (*Error)(nil)
-var _ fmt.Formatter = (*Error)(nil)
-```
-
-[返回開頭](#快速導覽)
-
----
-
-## 格式契約
-
-### `fmt.Formatter` verb 行為
-
-| Verb | 輸出 | 範例 |
-|------|------|------|
-| `%s` | 等同 `Error()` | `[NOT_FOUND] user not found` |
-| `%v` | 等同 `Error()` | `[NOT_FOUND] user not found` |
-| `%q` | `Error()` 的 quoted string | `"[NOT_FOUND] user not found"` |
-| `%+v` | 完整 stack trace + cause chain | 見 [Stack Trace 輸出格式](#stack-trace-輸出格式) |
-
-### `%+v` cause chain 相容性
-
-| cause 型別 | 輸出行為 |
-|------------|----------|
-| `*errs.Error` | `Caused by: [CODE] message` + 該 cause 自己的 stack |
-| 一般 `error` | `Caused by: {cause.Error()}`，**不偽造 code 或 stack** |
-| `nil` | 不輸出 `Caused by:` 區塊 |
-
-chain 會持續透過 `errors.Unwrap()` 走訪，直到 cause 為 `nil`。
-
-### nil receiver 行為
-
-`(*Error)(nil)` 對所有 verb 輸出 `<nil>`，所有 accessor 回傳零值，不會 panic。
-
-[返回開頭](#快速導覽)
-
----
-
-## Stack Trace 輸出格式
-
-`%+v` 輸出仿照 Java `printStackTrace` 風格：
-
-```
-[DB_TIMEOUT] connection timed out
-    at main.loadUser (main.go:42)
-    at main.handleRequest (main.go:28)
-    at net/http.HandlerFunc.ServeHTTP (server.go:2166)
-Caused by: [CONN_FAILED] tcp dial failed
-    at db.Connect (db.go:15)
-Caused by: dial tcp 127.0.0.1:5432: connect: connection refused
-```
-
-格式規則：
-
-- 第一行：`[CODE] message`
-- 每個 frame：`    at {Function} ({File}:{Line})`（4 空格縮排）
-- `{File}` 一律為 basename（使用 `filepath.Base`），避免輸出綁定機器絕對路徑
-- `*Error` cause 節點：`Caused by: [CODE] message` + stack frames
-- 一般 `error` cause 節點：`Caused by: {cause.Error()}`，不附 stack
-- 無 cause 時不輸出 `Caused by:` 區塊
-
-[返回開頭](#快速導覽)
-
----
-
-## 模組結構
-
-模組由 3 個原始碼檔案組成，具有明確的建構依賴方向：
+透過 `Wrap` 建立的 cause chain，與 stdlib `errors.Is` / `errors.As` 的走訪方式。
 
 ```mermaid
 flowchart TD
-    stack["<b>stack.go</b><br/>Frame / Stack 型別<br/>capture() 捕獲 call stack"]
-    errsFile["<b>errs.go</b><br/>Error struct / New / Newf<br/>accessor 與 fmt.Formatter 實作"]
-    wrap["<b>wrap.go</b><br/>Wrap / Wrapf<br/>nil guard 與 cause chain"]
+    subgraph chain["Error Chain（由外到內）"]
+        direction TB
+        E1["🔴 *errs.Error\ncode: DB_QUERY_FAILED\nmessage: load user failed\nstack: ✅"]
+        E2["🔴 *errs.Error\ncode: CONN_TIMEOUT\nmessage: connection pool exhausted\nstack: ✅"]
+        E3["🟡 stdlib error\nsql: connection refused\nstack: ❌"]
+    end
 
-    stack -->|"Stack 型別 + capture()"| errsFile
-    errsFile -->|"Error struct"| wrap
+    E1 -->|"Unwrap()"| E2
+    E2 -->|"Unwrap()"| E3
+    E3 -->|"Unwrap()"| NIL["nil（chain 結束）"]
+
+    IS["errors.Is(E1, target)"] -.->|"走訪整條 chain"| E1
+    IS -.-> E2
+    IS -.-> E3
+
+    AS["errors.As(E1, &target)"] -.->|"找到第一個匹配型別"| E1
 ```
 
-| 檔案 | 職責 |
-|------|------|
-| [`stack.go`](../pkg/errs/stack.go) | `Frame` / `Stack` 型別定義、`capture(skip)` 透過 `runtime.Callers` 捕獲 call stack |
-| [`errs.go`](../pkg/errs/errs.go) | `Error` struct、`New` / `Newf` 建構函式、所有 accessor、`error` 與 `fmt.Formatter` 實作 |
-| [`wrap.go`](../pkg/errs/wrap.go) | `Wrap` / `Wrapf`，含 `nil` guard（`Wrap(nil, ...) == nil`） |
-
-測試檔案：
-
-| 檔案 | 類型 | 職責 |
-|------|------|------|
-| [`errs_test.go`](../pkg/errs/errs_test.go) | 黑箱（`package errs_test`） | 驗證公開 API 契約與使用者視角行為 |
-| [`internal_test.go`](../pkg/errs/internal_test.go) | 白箱（`package errs`） | 驗證內部函式（`capture` / `writeStack` / `writeCause` / `writeVerbose`）、邊界條件與欄位存取 |
+> **混合 chain**：chain 中可混合 `*errs.Error` 與一般 `error`。`%+v` 輸出時，`*errs.Error` 節點會印出 code + stack，一般 `error` 節點只印 message。
 
 [返回開頭](#快速導覽)
 
 ---
 
-## 設計決策
+## Stack Trace 捕獲機制
 
-| # | 議題 | 決策 | 理由 |
-|---|------|------|------|
-| D1 | 模組命名 | `pkg/errs`（非 `pkg/errors`） | 避免與 stdlib `errors` 衝突，import 時不需 alias |
-| D2 | `code` 參數位置 | 所有建構函式第一個參數 | 強制每個 error 都有 code，無法遺漏 |
-| D3 | stdlib helper 取捨 | 不 re-export `errors.Is` / `errors.As` | 只是 namespace sugar，v1 保持 API 貼近 Go 慣例 |
-| D4 | convenience helper | 不提供 `Code(err error)` | 使用 stdlib `errors.As` 顯式抽取，避免 API 膨脹 |
-| D5 | `StackTrace()` 回傳值 | 防禦性複本（`make` + `copy`） | 避免外部修改影響 Error 內部狀態 |
-| D6 | `Wrap(nil, ...)` | 回傳 `nil` | 符合 Go 慣例，防止成功路徑意外產生非 nil error |
-| D7 | Stack frame 檔名 | `filepath.Base` basename | 確保輸出穩定，不受機器路徑影響 |
-| D8 | `code` 驗證 | v1 為 caller contract，不做 runtime validation | 保持 API 簡潔；未來需要時可升級為 registry enforcement |
-| D9 | 函式回傳型別 | 回傳 `error` 介面，實際值為 `*errs.Error` | 避免消費端被迫依賴 `pkg/errs`；`pkg/log` 等下游以 duck-typing 介面偵測結構化欄位 |
-| D10 | Stack duck-typing | 新增 `FormatStack() string` 回傳 stdlib 型別 | Go interface 匹配要求回傳型別完全一致，`StackTrace() Stack` 無法做零耦合 duck-typing；`FormatStack()` 回傳 `string`，任何 error library 可實作同簽名方法 |
+從呼叫端到最終存入 `Error.stack` 的完整路徑。
 
-[返回開頭](#快速導覽)
+```mermaid
+sequenceDiagram
+    participant Caller as 呼叫端
+    participant API as New / Wrap
+    participant Capture as capture(skip=3)
+    participant Runtime as runtime.Callers
+    participant Frames as runtime.CallersFrames
 
----
+    Caller ->> API: errs.New("CODE", "msg")
+    API ->> Capture: capture(3)
+    Capture ->> Runtime: Callers(3, pcs[:32])
+    Runtime -->> Capture: n 個 program counter
 
-## 測試
+    alt n == 0
+        Capture -->> API: nil（無 stack）
+    else n > 0
+        Capture ->> Frames: CallersFrames(pcs[:n])
+        loop 每個 frame
+            Frames -->> Capture: {Function, File, Line}
+            Note over Capture: File = filepath.Base(frame.File)
+        end
+        Capture -->> API: Stack（[]Frame）
+    end
 
-### 執行測試
-
-```bash
-# 全部測試（含覆蓋率）
-go test -v -cover ./pkg/errs/...
-
-# 僅黑箱測試
-go test -v -run 'Test(New|Newf|Wrap|Wrapf|Accessors|StackTraceCopy|As|Format|StackSkip|NilReceiver|NilCause|WrapNil)$' ./pkg/errs/...
-
-# 僅白箱測試
-go test -v -run 'Test(Capture|WriteStack|WriteCause|WriteVerbose|ErrorEmpty|ErrorZero|StackTraceEmpty|DirectField|WrapDirect)' ./pkg/errs/...
+    API -->> Caller: *Error（含 stack）
 ```
 
-### 覆蓋率
-
-目前測試覆蓋率 **100.0%**，包含：
-
-- **黑箱測試**（12 個）：驗證公開 API 的行為契約（E1–E12）
-- **白箱測試**（20 個子測試）：驗證 `capture()`、`writeStack()`、`writeCause()`、`writeVerbose()` 等內部函式與邊界條件
-
-### 驗收標準
-
-| # | 項目 | 驗證方式 |
-|---|------|----------|
-| E1 | `New` 建立含 code + message + stack 的 error | `TestNew` |
-| E2 | `Newf` 支援 format string 插值 | `TestNewf` |
-| E3 | `Wrap` 保留 cause chain，`errors.Is` 可走訪 | `TestWrap` |
-| E4 | `Wrapf` 支援 format + chain | `TestWrapf` |
-| E5 | `Code()` / `Message()` 回傳原始欄位 | `TestAccessors` |
-| E6 | `StackTrace()` 回傳防禦性複本 | `TestStackTraceCopy` |
-| E7 | `Unwrap` 使 `errors.As` 能走 chain | `TestAs` |
-| E8 | `%s` / `%v` / `%q` 行為固定 | `TestFormatBasicVerbs` |
-| E9 | `%+v` 印出完整 stack trace 含 cause chain | `TestFormatVerbose` |
-| E10 | 第一個 frame 為呼叫者，檔名為 basename | `TestStackSkip` |
-| E11 | nil receiver 與 nil cause 不 panic | `TestNilReceiver` / `TestNilCause` |
-| E12 | `Wrap(nil, ...)` 回傳 `nil` | `TestWrapNil` |
-| E15 | `FormatStack()` 回傳格式化 stack 字串 | `TestFormatStack` |
-| E16 | 編譯通過 | `go build ./pkg/errs/...` |
-| E17 | 靜態分析通過 | `go vet ./pkg/errs/...` |
+> **skip = 3** 的含義：跳過 `runtime.Callers` → `capture` → `New`/`Wrap`，使第一個 frame 指向**呼叫端**的程式碼位置。
 
 [返回開頭](#快速導覽)
 
 ---
 
-## 已知限制與注意事項
+## 格式化輸出路由
 
-| # | 議題 | 說明 | 緩解措施 |
-|---|------|------|----------|
-| 1 | `runtime.Callers` skip 值 | 跨 Go 版本可能因 inlining 策略變更而偏移 | `TestStackSkip` 會在 CI 中即時捕獲 |
-| 2 | nil `*Error` 的 interface 陷阱 | `var err error = (*errs.Error)(nil)` 在 Go 中 `err != nil` 為 `true` | 這是 Go interface 語義，非本模組 bug；`Wrap` 僅 guard `err == nil`（interface nil） |
-| 3 | `code` 空字串 | v1 不做 runtime validation，空 code 會產生 `[] message` | 依 caller contract 管理；未來可引入 registry |
-| 4 | `fmt.Errorf("%w")` 疊加 | 若 `*errs.Error` 被 `fmt.Errorf("%w", err)` 再包一層，`%+v` 走 chain 時可能重複印 message | 建議統一使用 `errs.Wrap` 而非混用 `fmt.Errorf` |
-| 5 | Stack 最大深度 | `capture()` 硬上限為 32 frames | 對絕大多數應用足夠；超過 32 層的 frame 會被截斷 |
+`fmt.Formatter` 實作中，不同 verb 的輸出路由與最終格式。
+
+```mermaid
+flowchart TD
+    FMT["fmt.Printf(format, err)"]
+    FMT --> Verb{verb?}
+
+    Verb -->|"%s"| Simple["Error()\n→ [CODE] message"]
+    Verb -->|"%v"| VFlag{有 '+' flag?}
+    Verb -->|"%q"| Quoted["引號包裹\n→ &quot;[CODE] message&quot;"]
+
+    VFlag -->|"否（%v）"| Simple
+    VFlag -->|"是（%+v）"| Verbose["writeVerbose()"]
+
+    Verbose --> Line1["[CODE] message"]
+    Line1 --> StackOut["writeStack()\n→     at Func (File:Line)\n→     at Func (File:Line)"]
+    StackOut --> HasCause{有 cause?}
+
+    HasCause -->|"否"| Done["輸出結束"]
+    HasCause -->|"是"| CauseType{cause 型別?}
+
+    CauseType -->|"*errs.Error"| ErrsCause["Caused by: [CODE] message\n+ cause 的 stack frames"]
+    CauseType -->|"一般 error"| PlainCause["Caused by: cause.Error()"]
+
+    ErrsCause --> NextCause["繼續 Unwrap..."]
+    PlainCause --> NextCause
+    NextCause --> HasCause
+```
+
+> **Chain 走訪**：`%+v` 會沿著 `Unwrap()` 走訪整條 chain，每個節點根據型別決定輸出格式。
+
+[返回開頭](#快速導覽)
+
+---
+
+## FormatStack 與 Duck-Typing
+
+這是 `pkg/errs` 最關鍵的設計決策之一——為什麼需要 `FormatStack()` 以及它如何實現零耦合。
+
+### 問題：Go Interface 的型別耦合陷阱
+
+```mermaid
+flowchart LR
+    subgraph problem["❌ 型別耦合問題"]
+        direction TB
+        Log1["pkg/log 定義介面：\nStackTracer { StackTrace() ??? }"]
+        Errs1["pkg/errs 的方法：\nStackTrace() errs.Stack"]
+        Log1 -.->|"回傳型別必須完全一致"| Import["pkg/log 必須 import errs.Stack"]
+        Import -->|"產生直接依賴"| Coupled["❌ 違反零耦合目標"]
+    end
+
+    subgraph solution["✅ FormatStack 解法"]
+        direction TB
+        Log2["pkg/log 定義介面：\nstackProvider { FormatStack() string }"]
+        Errs2["pkg/errs 的方法：\nFormatStack() string"]
+        Log2 -.->|"回傳 stdlib string"| NoImport["無需 import 任何型別"]
+        NoImport -->|"Go duck-typing 自動滿足"| Decoupled["✅ 零耦合達成"]
+    end
+
+    problem ~~~ solution
+```
+
+### 三層偵測策略
+
+`pkg/log` 從 `error` 中萃取結構化資訊時，依序嘗試三層偵測——不需要 import `pkg/errs`。
+
+```mermaid
+flowchart TD
+    Start["收到 error"]
+    Start --> T1{"實作 FormatStack 嗎？"}
+
+    T1 -->|"是"| FS["🎯 Tier 1：取得 stack 字串\nerr.FormatStack&#40;&#41;"]
+    FS --> Code{"實作 Code 嗎？"}
+
+    T1 -->|"否"| T2{"實作 fmt.Formatter 嗎？"}
+
+    T2 -->|"是"| FMT["📋 Tier 2：嘗試 %+v\nfmt.Sprintf 取得詳細輸出"]
+    FMT --> Code
+
+    T2 -->|"否"| Plain["📝 Tier 3：純文字\nerr.Error&#40;&#41;"]
+    Plain --> Code
+
+    Code -->|"是"| Full["結構化日誌\ncode + message + stack"]
+    Code -->|"否"| Partial["部分結構化\nerror.text + stack"]
+
+    style FS fill:#d4edda,stroke:#28a745,color:#155724
+    style FMT fill:#fff3cd,stroke:#ffc107,color:#856404
+    style Plain fill:#f8d7da,stroke:#dc3545,color:#721c24
+```
+
+### 為什麼不只用 `StackTrace()`？
+
+| 方法 | 回傳型別 | duck-typing 可行性 | 適用場景 |
+|------|----------|-------------------|----------|
+| `StackTrace()` | `errs.Stack`（自定義型別） | ❌ 消費端必須 import `pkg/errs` | 程式內部需要逐 frame 存取時 |
+| `FormatStack()` | `string`（stdlib 型別） | ✅ 任何模組可定義相同簽名 | 日誌、監控等只需文字表示時 |
+
+> **共存設計**：兩個方法並存——`StackTrace()` 給需要結構化存取的場景，`FormatStack()` 給跨模組零耦合的場景。
+
+[返回開頭](#快速導覽)
+
+---
+
+## 跨模組零耦合架構
+
+`pkg/errs` 與未來 `pkg/log` 之間的依賴關係——透過 duck-typing interface 達成完全解耦。
+
+```mermaid
+flowchart TD
+    subgraph errs_pkg["pkg/errs"]
+        direction TB
+        ErrType["Error struct"]
+        Methods["Code() string\nMessage() string\nFormatStack() string\nStackTrace() Stack"]
+        ErrType --- Methods
+    end
+
+    subgraph log_pkg["pkg/log"]
+        direction TB
+        DuckInterfaces["私有 duck-typing 介面"]
+        CP["codeProvider { Code() string }"]
+        MP["messageProvider { Message() string }"]
+        SP["stackProvider { FormatStack() string }"]
+        DuckInterfaces --- CP
+        DuckInterfaces --- MP
+        DuckInterfaces --- SP
+    end
+
+    subgraph third_party["第三方 error library"]
+        direction TB
+        TPErr["CustomError"]
+        TPMethods["FormatStack() string\n（相同簽名即可）"]
+        TPErr --- TPMethods
+    end
+
+    Methods -.->|"Go duck-typing\n自動滿足"| DuckInterfaces
+    TPMethods -.->|"Go duck-typing\n自動滿足"| DuckInterfaces
+
+    errs_pkg <-->|"❌ 無 import 關係"| log_pkg
+    third_party <-->|"❌ 無 import 關係"| log_pkg
+
+    style errs_pkg fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    style log_pkg fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style third_party fill:#fff8e1,stroke:#f9a825,color:#e65100
+```
+
+> **開放性**：任何 error library 只要實作 `FormatStack() string`，就能自動被 `pkg/log` 偵測並萃取 stack 資訊——不需要任何 import 或 registry。
+
+[返回開頭](#快速導覽)
+
+---
+
+## 使用情境決策樹
+
+在不同場景下，應該使用哪個 API。
+
+```mermaid
+flowchart TD
+    Start["需要回傳 error"]
+    Start --> HasCause{"有 cause\n（原始 error）嗎？"}
+
+    HasCause -->|"否"| NeedFmt{"message 需要格式化嗎？"}
+    NeedFmt -->|"否"| UseNew["errs.New&#40;code, msg&#41;"]
+    NeedFmt -->|"是"| UseNewf["errs.Newf&#40;code, fmt, args...&#41;"]
+
+    HasCause -->|"是"| CauseFmt{"message 需要格式化嗎？"}
+    CauseFmt -->|"否"| UseWrap["errs.Wrap&#40;err, code, msg&#41;"]
+    CauseFmt -->|"是"| UseWrapf["errs.Wrapf&#40;err, code, fmt, args...&#41;"]
+
+    UseNew --> Return["return err\n型別為 error 介面"]
+    UseNewf --> Return
+    UseWrap --> Return
+    UseWrapf --> Return
+
+    Return --> Consumer{"消費端如何處理？"}
+
+    Consumer -->|"判斷 error 類型"| ErrAs["errors.As&#40;err, &amp;target&#41;\n取得 *errs.Error"]
+    Consumer -->|"判斷特定 cause"| ErrIs["errors.Is&#40;err, sentinel&#41;\n走訪 chain"]
+    Consumer -->|"印出詳細資訊"| PrintV["fmt.Printf&#40;&quot;%+v&quot;, err&#41;\nJava-style stack trace"]
+    Consumer -->|"傳給 log 系統"| LogSys["log.Error&#40;msg, err&#41;\n自動 duck-typing 萃取"]
+
+    style UseNew fill:#d4edda,stroke:#28a745,color:#155724
+    style UseNewf fill:#d4edda,stroke:#28a745,color:#155724
+    style UseWrap fill:#d4edda,stroke:#28a745,color:#155724
+    style UseWrapf fill:#d4edda,stroke:#28a745,color:#155724
+    style Return fill:#fff3cd,stroke:#ffc107,color:#856404
+```
 
 [返回開頭](#快速導覽)

@@ -230,9 +230,25 @@ foreach ($d in @("api", "deployments", "docs", "test/integration")) {
     Write-FileIfNotExists "$d/.gitkeep" ""
 }
 
+# ── 清理：清空 README.md 並移除初始化腳本 ──
 Write-Host ""
-Write-Host "Done! Project structure initialized."
-Write-Host "Run 'go build ./...' to verify."
+Set-Content -Path "README.md" -Value "" -Encoding UTF8 -NoNewline
+Write-Host "  CLEAR  README.md"
+
+$scriptFiles = @("scripts/init.sh", "scripts/init.ps1")
+foreach ($f in $scriptFiles) {
+    if (Test-Path $f) {
+        Remove-Item -Path $f -Force
+        Write-Host "  DELETE $f"
+    }
+}
+
+Write-Host ""
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "  專案結構初始化完成！" -ForegroundColor Green
+Write-Host "  請編輯 README.md 開始這個專案的開發。" -ForegroundColor Yellow
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host ""
 
 } finally {
     Pop-Location

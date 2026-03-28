@@ -201,6 +201,19 @@ for d in api deployments docs "test/integration"; do
   write_file "$d/.gitkeep" ""
 done
 
+# ── 清理：清空 README.md 並移除初始化腳本 ──
 echo ""
-echo "Done! Project structure initialized."
-echo "Run 'go build ./...' to verify."
+
+> "README.md"
+echo "  CLEAR  README.md"
+
+rm -f "scripts/init.sh" "scripts/init.ps1"
+echo "  DELETE scripts/init.sh"
+echo "  DELETE scripts/init.ps1"
+
+echo ""
+echo "================================================"
+echo "  專案結構初始化完成！"
+echo "  請編輯 README.md 開始這個專案的開發。"
+echo "================================================"
+echo ""
