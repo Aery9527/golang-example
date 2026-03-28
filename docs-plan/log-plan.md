@@ -29,7 +29,7 @@
 | 結構化日誌 | 基於 `log/slog`，輸出 key-value 結構化記錄 |
 | 多輸出 fan-out | 同一筆 log 可同時寫入 console + text file + JSON file |
 | Eager + Lazy API | Lazy variant 避免 disabled level 下的 argument evaluation 與 allocation |
-| Error 強制統一 | `log.Error()` 只接受 `*errs.Error`，確保所有 error log 攜帶 code + stack |
+| Error 智慧偵測 | `log.Error()` 接受 `error` 介面，以 duck-typing 自動偵測 code / message / stack 結構化欄位；plain error graceful degradation |
 | 零外部依賴 | 模組本體只使用 Go stdlib（測試允許引入 `testify`） |
 
 [返回開頭](#快速導覽)
@@ -38,9 +38,9 @@
 
 ## 前置依賴
 
-此模組依賴 [`pkg/errs`](errs-plan.md)：`log.Error()` 的參數型別為 `*errs.Error`。
+此模組**不 import `pkg/errs`**。`log.Error()` 內部以 duck-typing 介面偵測結構化欄位（`Code() string`、`Message() string`、`FormatStack() string`），全部使用 stdlib 型別，零跨模組耦合。另提供 `fmt.Formatter` + `%+v` fallback 支援第三方 error library。
 
-**開始實作 `pkg/log` 之前，`pkg/errs` 必須完成並通過所有驗收標準。**
+**開始實作 `pkg/log` 之前，`pkg/errs` 必須完成並通過所有驗收標準（以驗證 duck-typing 相容性）。**
 
 [返回開頭](#快速導覽)
 
@@ -72,12 +72,13 @@
 
 | # | 議題 | 決策 | 理由 |
 |---|------|------|------|
-| D1 | `log.Error()` 參數型別 | 只接受 `*errs.Error` | 強制所有 error log 攜帶 code + stack，統一可觀測性 |
+| D1 | `log.Error()` 參數型別 | 接受 `error` 介面，內部以 duck-typing 介面偵測結構化欄位 | 避免強迫消費端依賴 `pkg/errs`；`*errs.Error` 自動滿足介面，plain error graceful degradation |
 | D2 | Level 管理 | `*slog.LevelVar` 共享給所有 handler | 支援 runtime 動態切換 level，不需重建 handler |
 | D3 | 無 output 時的預設行為 | Fallback 到 console text（stderr） | 避免「忘了設定就什麼都看不到」的情況 |
 | D4 | Init 執行安全性 | 文件規範「只在 main 啟動時呼叫一次」 | 避免 package-level global state 的 race condition |
 | D5 | Lazy API | 提供 `LazyInfo` / `LazyDebug` / `LazyWarn` / `LazyError` | 避免 disabled level 下的 argument evaluation 與 slice allocation |
 | D6 | 測試框架 | 允許 `testify/assert` + `testify/require` | 符合專案 golang-guidelines，提升測試可讀性 |
+| D7 | Stack 偵測策略 | `FormatStack() string` 主偵測 + `fmt.Formatter` `%+v` fallback | Go interface 要求回傳型別完全一致，`StackTrace() errs.Stack` 無法做零耦合 duck-typing；`FormatStack()` 回傳 stdlib `string`，任何 error library 可實作；`fmt.Formatter` fallback 支援 `pkg/errors` 等既有 library |
 
 [返回開頭](#快速導覽)
 
@@ -191,10 +192,26 @@ var _ slog.Handler = (*multiHandler)(nil)
 func Info(msg string, args ...any)
 func Warn(msg string, args ...any)
 func Debug(msg string, args ...any)
-func Error(msg string, err *errs.Error, args ...any) // 只接受 *errs.Error
+func Error(msg string, err error, args ...any) // 接受 error 介面
 ```
 
-`Error` 自動注入 `error.code`、`error.message`、`error.stack` 為 slog attributes。
+`Error` 以 duck-typing 偵測 error 是否攜帶結構化欄位，自動注入可用的 slog attributes：
+
+| 偵測介面 | 條件 | 注入的 attribute |
+|----------|------|-----------------|
+| `codeProvider` | `err.(interface{ Code() string })` | `error.code` |
+| `messageProvider` | `err.(interface{ Message() string })` | `error.message` |
+| `stackProvider` | `err.(interface{ FormatStack() string })` | `error.stack` |
+| `verboseProvider` | `err.(fmt.Formatter)` → `%+v` fallback | `error.verbose`（僅在無 `FormatStack()` 時） |
+| — | 一律 | `error.text` = `err.Error()` |
+
+這些介面定義在 `pkg/log` 內部（未匯出），遵循 golang-guidelines Rule 3。
+
+**偵測策略（三層 fallback）**：
+
+1. **`FormatStack() string`**：回傳 stdlib 型別，零跨模組耦合。`*errs.Error` 自動滿足。任何第三方 error library 只需實作同簽名方法即可相容。
+2. **`fmt.Formatter` + `%+v` fallback**：對未實作 `FormatStack()` 但支援 `%+v`（如 `github.com/pkg/errors`）的 error，以 verbose 格式作為 fallback。
+3. **plain error degradation**：僅記錄 `error.text`。
 
 ### Lazy variants
 
@@ -204,7 +221,7 @@ Closure 避免 disabled level 下的 allocation：
 func LazyInfo(msg string, f func() []any)
 func LazyWarn(msg string, f func() []any)
 func LazyDebug(msg string, f func() []any)
-func LazyError(msg string, f func() (*errs.Error, []any))
+func LazyError(msg string, f func() (error, []any))
 ```
 
 ### Lazy 原理
@@ -231,23 +248,27 @@ log.LazyDebug("loaded", func() []any {
 
 ```mermaid
 flowchart TD
-    subgraph errs["pkg/errs（前置依賴）"]
-        errsError["*errs.Error"]
-    end
-
     subgraph log["pkg/log"]
         config["config.go<br/>Option / outputSpec / config"]
         handler["handler.go<br/>multiHandler"]
-        logFile["log.go<br/>Init() / Eager & Lazy API"]
+        logFile["log.go<br/>Init() / Eager & Lazy API<br/>duck-typing 介面偵測"]
 
         config -->|"config struct"| logFile
         handler -->|"multiHandler"| logFile
     end
 
-    errsError -.->|"log.Error 參數型別"| logFile
+    duckCode["interface{ Code() string }"]
+    duckMsg["interface{ Message() string }"]
+    duckStack["interface{ FormatStack() string }"]
+    duckFmt["fmt.Formatter（%+v fallback）"]
+
+    logFile -.->|"duck-typing"| duckCode
+    logFile -.->|"duck-typing"| duckMsg
+    logFile -.->|"duck-typing"| duckStack
+    logFile -.->|"fallback"| duckFmt
 ```
 
-> 實線箭頭表示同 package 內的建構依賴，虛線箭頭表示跨 package 的 import 依賴。
+> `pkg/log` **不 import `pkg/errs`**。所有結構化欄位偵測皆透過 duck-typing 介面與 `fmt.Formatter`，零跨模組型別耦合。
 
 [返回開頭](#快速導覽)
 
@@ -276,7 +297,7 @@ flowchart TD
 |------|------|------|
 | 1 | `pkg/log/config.go` | `config` struct、`Option` type、`WithLevel` / `WithConsole` / `WithTextFile` / `WithJSONFile`、`*slog.LevelVar` 共享 level |
 | 2 | `pkg/log/handler.go` | `multiHandler` 實作 `slog.Handler`：`Enabled` / `Handle`（`r.Clone()`）/ `WithAttrs` / `WithGroup`、interface 靜態驗證 |
-| 3 | `pkg/log/log.go` | `Init()` 解析 options 建構 handlers、Eager API（Info / Warn / Debug / Error）、Lazy API（LazyInfo / LazyDebug / LazyWarn / LazyError）、`Error()` 自動注入 `error.code` / `error.message` / `error.stack` |
+| 3 | `pkg/log/log.go` | `Init()` 解析 options 建構 handlers、Eager API（Info / Warn / Debug / Error）、Lazy API（LazyInfo / LazyDebug / LazyWarn / LazyError）、`Error()` 以 duck-typing 介面偵測 `error.code` / `error.message` / `error.stack`（`FormatStack() string`），`fmt.Formatter` `%+v` fallback 偵測 `error.verbose`，一律注入 `error.text` |
 | 4 | `pkg/log/log_test.go` | Table-driven tests 覆蓋 L1–L9 所有驗收項目 |
 
 ### Phase 2：整合與清理
@@ -300,8 +321,9 @@ flowchart TD
 | L1 | `Init()` 無參數 fallback console | unit test | `go test ./pkg/log/... -v -run TestInitDefault` | 不 panic，logger 可正常寫出到 stderr |
 | L2 | 多輸出 fan-out | unit test | `go test ./pkg/log/... -v -run TestMultiOutput` | 同一筆 log 同時出現在所有已註冊的 writer |
 | L3 | Level 過濾正確 | unit test | `go test ./pkg/log/... -v -run TestLevelFilter` | Info level 下 Debug 訊息不出現 |
-| L4 | `Error()` 自動注入 error attributes | unit test | `go test ./pkg/log/... -v -run TestErrorAttrs` | JSON 輸出含 `error.code`、`error.message`、`error.stack` |
-| L5 | `Error()` 拒絕 stdlib error | 編譯檢查 | 嘗試傳 `fmt.Errorf(...)` 給 `log.Error()` | **編譯失敗**（型別不匹配） |
+| L4 | `Error()` 自動偵測並注入 error attributes | unit test | `go test ./pkg/log/... -v -run TestErrorAttrs` | `*errs.Error` 的 JSON 輸出含 `error.code`、`error.message`、`error.stack`（via `FormatStack()`）、`error.text` |
+| L5 | `Error()` 對 plain error graceful degradation | unit test | `go test ./pkg/log/... -v -run TestErrorPlain` | plain `error` 的 JSON 輸出含 `error.text`，不含 `error.code` / `error.stack` |
+| L5b | `Error()` 對 `fmt.Formatter` error 的 fallback | unit test | `go test ./pkg/log/... -v -run TestErrorFormatterFallback` | 實作 `fmt.Formatter` 但無 `FormatStack()` 的 error，JSON 輸出含 `error.verbose` |
 | L6 | Lazy closure 在 level disabled 時不執行 | unit test | `go test ./pkg/log/... -v -run TestLazySkip` | closure 內設置的 flag 未被觸發 |
 | L7 | Lazy closure 在 level enabled 時正常執行 | unit test | `go test ./pkg/log/... -v -run TestLazyExecute` | log 輸出含 closure 回傳的 key-value |
 | L8 | Runtime level 動態切換 | unit test | `go test ./pkg/log/... -v -run TestDynamicLevel` | 切換前 Debug 不輸出，切換後 Debug 輸出 |
@@ -326,7 +348,7 @@ flowchart TD
 | # | 風險 / 議題 | 影響 | 緩解措施 |
 |---|-----------|------|---------|
 | R1 | `slog.Record.Clone()` 在高頻場景的 allocation 成本 | multiHandler fan-out 時每個子 handler 都 clone | 目前 N ≤ 3，可接受；若未來 handler 數量增加再考慮 pool |
-| R2 | `log.Error()` 只接受 `*errs.Error` 增加 caller 負擔 | 呼叫者必須先 wrap 外部 error | 這是刻意的 trade-off，確保所有 error log 都有結構化資訊 |
+| R2 | `log.Error()` 接受 `error` 介面，plain error 無結構化欄位 | 部分 error log 可能缺少 code / stack | Graceful degradation：一律記錄 `error.text`；搭配 golang-guidelines Rule 5 規範所有專案 error 使用 `pkg/errs`，plain error 僅在邊界（外部 lib）出現 |
 | R3 | Package-level global logger 非 thread-safe init | 多 goroutine 同時呼叫 `Init()` 有 race | 文件明確規範「只在 main 啟動時呼叫一次」；若需要可加 `sync.Once` |
 | R4 | 未實作 graceful shutdown / flush | 程式異常退出時可能遺失最後幾筆 log | 目前使用 unbuffered writer，影響有限；未來可擴充 `Close()` 方法 |
 

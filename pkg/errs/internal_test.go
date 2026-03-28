@@ -312,3 +312,42 @@ func TestWrapDirectFieldAccess(t *testing.T) {
 	assert.Same(t, original, e.cause)
 	assert.NotEmpty(t, e.stack)
 }
+
+// ---- FormatStack() 白箱測試 ----
+
+// TestFormatStackEmpty 驗證 stack 為 nil 或空 slice 時回傳空字串。
+func TestFormatStackEmpty(t *testing.T) {
+	t.Run("nil_stack", func(t *testing.T) {
+		e := &Error{code: "X", message: "x", stack: nil}
+		assert.Equal(t, "", e.FormatStack())
+	})
+
+	t.Run("empty_stack", func(t *testing.T) {
+		e := &Error{code: "X", message: "x", stack: Stack{}}
+		assert.Equal(t, "", e.FormatStack())
+	})
+}
+
+// TestFormatStackOutput 驗證 FormatStack 對手動建構的 stack 產生正確格式。
+func TestFormatStackOutput(t *testing.T) {
+	t.Run("single_frame", func(t *testing.T) {
+		e := &Error{
+			stack: Stack{
+				{Function: "main.run", File: "main.go", Line: 42},
+			},
+		}
+		assert.Equal(t, "main.run (main.go:42)", e.FormatStack())
+	})
+
+	t.Run("multiple_frames", func(t *testing.T) {
+		e := &Error{
+			stack: Stack{
+				{Function: "main.run", File: "main.go", Line: 42},
+				{Function: "pkg.Handler", File: "handler.go", Line: 15},
+				{Function: "net/http.serve", File: "server.go", Line: 2166},
+			},
+		}
+		expected := "main.run (main.go:42)\npkg.Handler (handler.go:15)\nnet/http.serve (server.go:2166)"
+		assert.Equal(t, expected, e.FormatStack())
+	})
+}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // 編譯期 interface 驗證（golang-guidelines Rule 1）。
@@ -70,6 +71,23 @@ func (e *Error) StackTrace() Stack {
 	cp := make(Stack, len(e.stack))
 	copy(cp, e.stack)
 	return cp
+}
+
+// FormatStack 回傳格式化的 stack trace 字串。每行格式為
+// "Function (File:Line)"，行間以換行分隔。回傳 stdlib 型別 string，適合作為
+// duck-typing 介面的偵測目標（例如 pkg/log），避免跨模組型別耦合。
+func (e *Error) FormatStack() string {
+	if e == nil || len(e.stack) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, f := range e.stack {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		fmt.Fprintf(&b, "%s (%s:%d)", f.Function, f.File, f.Line)
+	}
+	return b.String()
 }
 
 // Error 回傳格式為 "[CODE] message" 的字串。

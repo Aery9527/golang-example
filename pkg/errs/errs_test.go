@@ -233,3 +233,34 @@ func TestWrapNil(t *testing.T) {
 	assert.Nil(t, errs.Wrap(nil, "CODE", "msg"))
 	assert.Nil(t, errs.Wrapf(nil, "CODE", "msg %s", "arg"))
 }
+
+// E15: FormatStack() 回傳格式化的 stack trace 字串，回傳 string 型別以利 duck-typing。
+func TestFormatStack(t *testing.T) {
+	t.Run("returns_formatted_stack", func(t *testing.T) {
+		err := errs.New("TEST", "test")
+		s := err.FormatStack()
+		require.NotEmpty(t, s)
+
+		lines := strings.Split(s, "\n")
+		// 第一行應包含呼叫者函式名稱
+		assert.Contains(t, lines[0], "TestFormatStack")
+		// 每行格式 "Function (File:Line)"
+		assert.Contains(t, lines[0], "(errs_test.go:")
+		// 不應有 "    at " prefix（Java-style 是 %+v 的格式，FormatStack 用簡潔格式）
+		assert.NotContains(t, lines[0], "    at ")
+	})
+
+	t.Run("nil_receiver", func(t *testing.T) {
+		var err *errs.Error
+		assert.Equal(t, "", err.FormatStack())
+	})
+
+	t.Run("consistent_with_stack_trace", func(t *testing.T) {
+		err := errs.New("TEST", "test")
+		st := err.StackTrace()
+		s := err.FormatStack()
+		lines := strings.Split(s, "\n")
+		// FormatStack 行數應與 StackTrace frame 數一致
+		assert.Equal(t, len(st), len(lines))
+	})
+}
