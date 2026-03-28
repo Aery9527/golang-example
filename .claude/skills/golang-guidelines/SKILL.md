@@ -46,10 +46,11 @@ description: >-
 
 19. 測試優先使用 `github.com/stretchr/testify/assert`；可行時補上或擴充測試覆蓋行為契約。
 20. 優先使用 table-driven tests（`[]struct{ name, input, want }`）；子測試用 `t.Run`。
-21. 測試檔案中可使用 `_test` package（black-box testing）驗證公開 API 行為。
+21. 每個套件必須同時包含**黑箱測試**（`package xxx_test`，驗證公開 API 契約與使用者視角行為）與**白箱測試**（`package xxx`，驗證內部邏輯、私有函式與邊界條件）。
+22. 以 `go test -coverprofile` 檢查覆蓋率，目標 **100%**；若特定路徑確實無法覆蓋（如 `runtime.Callers` 失敗等不可控路徑），須在測試檔案中以 `// coverage:ignore — <原因>` 明確標註理由。
 
 ## 其他
 
-22. `defer` 用於資源釋放（`Close`、`Unlock`）；在取得資源後立即 defer，不等到函式末尾。
-23. 零值應具備可用性（zero value usability）；struct 初始化後不需額外呼叫 `Init()` 才能使用。
-24. `init()` 僅用於確實必要的套件初始化，避免副作用難以追蹤；能用建構子解決的不用 `init()`。
+23. `defer` 用於資源釋放（`Close`、`Unlock`）；在取得資源後立即 defer，不等到函式末尾。
+24. 零值應具備可用性（zero value usability）；struct 初始化後不需額外呼叫 `Init()` 才能使用。
+25. `init()` 僅用於確實必要的套件初始化，避免副作用難以追蹤；能用建構子解決的不用 `init()`。
