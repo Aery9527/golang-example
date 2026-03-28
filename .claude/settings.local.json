@@ -21,7 +21,9 @@
       "Bash(npm install *)",
       "Bash(npx *)",
       "WebFetch",
-      "WebSearch"
+      "WebSearch",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(go build:*)"
     ],
     "deny": [
       "Bash(rm -rf *)",
