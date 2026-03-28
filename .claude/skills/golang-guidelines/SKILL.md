@@ -25,24 +25,31 @@ description: >-
 9. 避免 naked return；有名稱的回傳值僅用於文件說明，不依賴其隱式 return。
 10. receiver 名稱使用型別首字母縮寫（1–2 字元），保持一致；不用 `self` / `this`。
 
+## 文件化
+
+11. 所有 `struct` 宣告前都必須有註解，簡潔說明該型別的責任、使用情境與重要約束；若用途不直觀、初始化有前置條件、或使用流程超過一步，需補上簡短 usage example。
+12. 所有 `func` 宣告前都必須有註解，說明其目的、主要行為、重要副作用與關鍵輸入輸出；若行為不直觀、具副作用、會啟動並發、或呼叫方式容易誤用，需補上簡短 usage example。
+13. 所有 `struct` field 都必須在欄位後方附上簡短註解，說明該欄位的意義或用途。
+14. 若 `struct` field 有固定格式、允許值集合或單位限制，註解中必須明確說明，並在適用時給一個具體例子，例如 `YYMMDD`、`20060102`、`https://api.example.com`、`ms`。
+
 ## Context
 
-11. 接受 `context.Context` 的函式，`ctx` 必須是第一個參數。
-12. 不將 `context.Context` 儲存在 struct 欄位中；每次呼叫時傳入。
+15. 接受 `context.Context` 的函式，`ctx` 必須是第一個參數。
+16. 不將 `context.Context` 儲存在 struct 欄位中；每次呼叫時傳入。
 
 ## 並發
 
-13. goroutine 啟動前，明確說明誰負責等待（`sync.WaitGroup`）或回收（`errgroup`）。
-14. channel 的方向在函式簽名中明確標示（`<-chan`、`chan<-`）。
+17. goroutine 啟動前，明確說明誰負責等待（`sync.WaitGroup`）或回收（`errgroup`）。
+18. channel 的方向在函式簽名中明確標示（`<-chan`、`chan<-`）。
 
 ## 測試
 
-15. 測試優先使用 `github.com/stretchr/testify/assert`；可行時補上或擴充測試覆蓋行為契約。
-16. 優先使用 table-driven tests（`[]struct{ name, input, want }`）；子測試用 `t.Run`。
-17. 測試檔案中可使用 `_test` package（black-box testing）驗證公開 API 行為。
+19. 測試優先使用 `github.com/stretchr/testify/assert`；可行時補上或擴充測試覆蓋行為契約。
+20. 優先使用 table-driven tests（`[]struct{ name, input, want }`）；子測試用 `t.Run`。
+21. 測試檔案中可使用 `_test` package（black-box testing）驗證公開 API 行為。
 
 ## 其他
 
-18. `defer` 用於資源釋放（`Close`、`Unlock`）；在取得資源後立即 defer，不等到函式末尾。
-19. 零值應具備可用性（zero value usability）；struct 初始化後不需額外呼叫 `Init()` 才能使用。
-20. `init()` 僅用於確實必要的套件初始化，避免副作用難以追蹤；能用建構子解決的不用 `init()`。
+22. `defer` 用於資源釋放（`Close`、`Unlock`）；在取得資源後立即 defer，不等到函式末尾。
+23. 零值應具備可用性（zero value usability）；struct 初始化後不需額外呼叫 `Init()` 才能使用。
+24. `init()` 僅用於確實必要的套件初始化，避免副作用難以追蹤；能用建構子解決的不用 `init()`。
