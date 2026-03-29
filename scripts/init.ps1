@@ -46,7 +46,6 @@ $dirs = @(
     "internal/handler"
     "internal/service"
     "internal/repository"
-    "pkg/logger"
     "api"
     "build"
     "deployments"
@@ -119,23 +118,6 @@ type Repository struct{}
 // NewRepository creates a new Repository.
 func NewRepository() *Repository {
 	return &Repository{}
-}
-"@
-
-# ── pkg/logger/logger.go ──
-Write-FileIfNotExists "pkg/logger/logger.go" @"
-package logger
-
-import "log"
-
-// Info logs an informational message.
-func Info(msg string) {
-	log.Println("[INFO]", msg)
-}
-
-// Error logs an error message.
-func Error(msg string) {
-	log.Println("[ERROR]", msg)
 }
 "@
 
