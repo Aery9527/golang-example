@@ -27,9 +27,6 @@ pwsh scripts/init.ps1
 ├── internal/             # 私有程式碼（不可被外部 import）
 │   ├── config/           # 應用程式設定
 │   ├── errs/             # 錯誤處理（error code + stack trace + cause chain）
-│   │   ├── errs.go       # Error 型別、New/Newf 建構與 fmt.Formatter 實作
-│   │   ├── stack.go      # Frame/Stack 型別與 call stack 捕獲
-│   │   └── wrap.go       # Wrap/Wrapf 包裝既有 error
 │   ├── handler/          # HTTP 處理器
 │   ├── logs/             # 日誌引擎（Handler chain、Formatter、Sink）
 │   ├── service/          # 商業邏輯層
