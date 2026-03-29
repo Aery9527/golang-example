@@ -191,12 +191,6 @@ func (w *RotatingFileWriter) rotate() error {
 // compresses surviving backups. It reads the filesystem directly — no mutex
 // needed because it only touches rotated (non-current) files.
 func (w *RotatingFileWriter) cleanup() {
-	pattern := w.basePath + ".*" + w.ext
-	if w.cfg.Compress {
-		// Also match already-compressed backups.
-		pattern = w.basePath + ".*" + w.ext + ".gz"
-	}
-
 	// Collect all rotated backup paths (uncompressed).
 	uncompressedPattern := w.basePath + ".*" + w.ext
 	matches, err := filepath.Glob(uncompressedPattern)
@@ -254,8 +248,6 @@ func (w *RotatingFileWriter) cleanup() {
 		}
 	}
 
-	// Suppress unused variable warning when Compress is false.
-	_ = pattern
 }
 
 // compressFile gzip-compresses src into src+".gz", then removes src.
@@ -264,24 +256,31 @@ func compressFile(src string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
 
 	dst := src + ".gz"
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
+		in.Close()
 		return err
 	}
-	defer out.Close()
 
 	gz := gzip.NewWriter(out)
 	if _, err := io.Copy(gz, in); err != nil {
+		in.Close()
+		out.Close()
 		_ = os.Remove(dst)
 		return err
 	}
 	if err := gz.Close(); err != nil {
+		in.Close()
+		out.Close()
 		_ = os.Remove(dst)
 		return err
 	}
+
+	// Close src before removing — required on Windows where open files cannot be deleted.
+	in.Close()
+	out.Close()
 
 	return os.Remove(src)
 }

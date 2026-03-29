@@ -150,6 +150,99 @@ func TestRotatingFileWriter_ExtFollowsFormat(t *testing.T) {
 }
 
 // --------------------------------------------------------------------------
+// TestRotatingFileWriter_MaxAge
+// Plant old backup files with past mtime, trigger rotation.
+// After cleanup, aged-out files must be removed.
+// --------------------------------------------------------------------------
+
+func TestRotatingFileWriter_MaxAge(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "app")
+
+	// Plant fake "old" backup file with mtime well in the past.
+	oldFile := base + ".20200101-000000.log"
+	if err := os.WriteFile(oldFile, []byte("old"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	past := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(oldFile, past, past); err != nil {
+		t.Fatalf("Chtimes: %v", err)
+	}
+
+	w, err := NewRotatingFileWriter(base, ".log", RotateConfig{
+		MaxSize:    20,
+		MaxBackups: 100, // high limit so MaxAge is the deciding factor
+		MaxAge:     1 * time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("NewRotatingFileWriter: %v", err)
+	}
+	defer w.Close()
+
+	// Write enough to trigger rotation → cleanup runs.
+	payload := strings.Repeat("a", 21)
+	if _, err := w.Write([]byte(payload)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	w.waitCleanup()
+
+	if _, err := os.Stat(oldFile); !os.IsNotExist(err) {
+		t.Errorf("aged-out file should have been removed: %s", oldFile)
+	}
+}
+
+// --------------------------------------------------------------------------
+// TestRotatingFileWriter_Compress
+// Enable Compress, trigger rotation, verify .gz file is created and
+// uncompressed backup is removed.
+// --------------------------------------------------------------------------
+
+func TestRotatingFileWriter_Compress(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "app")
+
+	w, err := NewRotatingFileWriter(base, ".log", RotateConfig{
+		MaxSize:    20,
+		MaxBackups: 10,
+		MaxAge:     24 * time.Hour,
+		Compress:   true,
+	})
+	if err != nil {
+		t.Fatalf("NewRotatingFileWriter: %v", err)
+	}
+	defer w.Close()
+
+	// Write enough to trigger rotation.
+	payload := strings.Repeat("b", 21)
+	if _, err := w.Write([]byte(payload)); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	w.waitCleanup()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+
+	var hasGz bool
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasSuffix(name, ".log.gz") {
+			hasGz = true
+		}
+		// Rotated uncompressed backup should NOT remain (compressed replaces it).
+		if strings.Contains(name, ".202") && strings.HasSuffix(name, ".log") {
+			t.Errorf("uncompressed backup should have been replaced by .gz: %s", name)
+		}
+	}
+	if !hasGz {
+		t.Error("expected at least one .gz compressed backup after rotation")
+	}
+}
+
+// --------------------------------------------------------------------------
 // TestRotatingFileWriter_CleanupOnlyOnRotation
 // MaxSize=1024 (large enough to never trigger rotation).
 // Plant fake old files in the directory, write a small payload.
