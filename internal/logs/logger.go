@@ -67,7 +67,7 @@ func (l *Logger) logErr(level Level, msg string, fn func() (error, []any)) {
 }
 
 // dispatch 建構 Entry 並送入 chain。caller 在此預捕獲。
-// Call chain: caller → Debug/Info/... → logKV/logErr → dispatch → runtime.Caller(4)
+// Call chain: dispatch(0) → logKV(1) → Info(2) → caller(3)
 func (l *Logger) dispatch(level Level, msg string, args []any, err error) {
 	entry := Entry{
 		Time:    time.Now(),
@@ -77,7 +77,7 @@ func (l *Logger) dispatch(level Level, msg string, args []any, err error) {
 		Error:   err,
 		Bound:   l.bound,
 	}
-	_, file, line, ok := runtime.Caller(4)
+	_, file, line, ok := runtime.Caller(3)
 	if ok {
 		entry.caller = filepath.Base(file) + ":" + strconv.Itoa(line)
 	}
