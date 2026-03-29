@@ -33,6 +33,7 @@ go run ./cmd/app
 ├── internal/             # 私有程式碼（不可被外部 import）
 │   ├── config/           # 應用程式設定
 │   ├── handler/          # HTTP 處理器
+│   ├── logs/             # 日誌引擎（Handler chain、Formatter、Sink）
 │   ├── service/          # 商業邏輯層
 │   └── repository/       # 資料存取層
 ├── pkg/                  # 可被外部 import 的共用套件
@@ -40,13 +41,14 @@ go run ./cmd/app
 │   │   ├── errs.go       # Error 型別、New/Newf 建構與 fmt.Formatter 實作
 │   │   ├── stack.go      # Frame/Stack 型別與 call stack 捕獲
 │   │   └── wrap.go       # Wrap/Wrapf 包裝既有 error
-│   └── logger/           # 日誌工具
+│   └── logs/             # 日誌公開 API（Configure DSL、re-exports）
 ├── api/                  # API 定義（OpenAPI、protobuf 等）
 ├── build/                # 建置與打包
 │   └── Dockerfile
 ├── deployments/          # 部署設定（docker-compose、k8s 等）
 ├── docs/                 # 專案文件
-│   └── errs.md           # pkg/errs 視覺化架構指南
+│   ├── errs.md           # pkg/errs 視覺化架構指南
+│   └── logs-design.md    # 日誌模組設計規格
 ├── test/                 # 整合測試 / E2E 測試
 │   └── integration/
 ├── scripts/              # 腳本工具
