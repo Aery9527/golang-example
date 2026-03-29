@@ -217,6 +217,11 @@ Write-Host ""
 Set-Content -Path "README.md" -Value "" -Encoding UTF8 -NoNewline
 Write-Host "  CLEAR  README.md"
 
+if (Test-Path "docs/superpowers") {
+    Remove-Item -Path "docs/superpowers" -Recurse -Force
+    Write-Host "  DELETE docs/superpowers"
+}
+
 $scriptFiles = @("scripts/init.sh", "scripts/init.ps1")
 foreach ($f in $scriptFiles) {
     if (Test-Path $f) {

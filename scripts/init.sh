@@ -191,6 +191,9 @@ echo ""
 > "README.md"
 echo "  CLEAR  README.md"
 
+rm -rf "docs/superpowers"
+echo "  DELETE docs/superpowers"
+
 rm -f "scripts/init.sh" "scripts/init.ps1"
 echo "  DELETE scripts/init.sh"
 echo "  DELETE scripts/init.ps1"
