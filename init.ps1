@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Go project structure initializer (PowerShell).
@@ -9,17 +9,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$RootDir = Split-Path -Parent $PSScriptRoot
+$RootDir = $PSScriptRoot
 Push-Location $RootDir
 try {
-
-# Read module name from go.mod
-if (-not (Test-Path "go.mod")) {
-    Write-Error "go.mod not found in $RootDir"
-    exit 1
-}
-$Module = (Get-Content "go.mod" -First 1) -replace '^module\s+', ''
-Write-Host "Module: $Module"
 
 # ── Helper: write file only if it doesn't exist ──
 function Write-FileIfNotExists {
@@ -222,7 +214,7 @@ if (Test-Path "docs/superpowers") {
     Write-Host "  DELETE docs/superpowers"
 }
 
-$scriptFiles = @("scripts/init.sh", "scripts/init.ps1")
+$scriptFiles = @("init.sh", "init.ps1")
 foreach ($f in $scriptFiles) {
     if (Test-Path $f) {
         Remove-Item -Path $f -Force

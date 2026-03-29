@@ -12,11 +12,20 @@ Go 專案模板（GitHub Template Repository），提供社群標準的專案結
 
 ```bash
 # Linux / macOS / Git Bash
-bash scripts/init.sh
+bash init.sh
 
 # Windows PowerShell
-pwsh scripts/init.ps1
+pwsh init.ps1
 ```
+
+## 初始化腳本說明
+
+`init.sh` 和 `init.ps1` 功能相同：
+
+- 建立下述所有目錄與基礎 `.go` 檔案，已存在的檔案不會被覆蓋
+- 生成 `.gitignore`、`Makefile`、`Dockerfile`、`.env.example`
+- 清空 `README.md`，並移除 `docs/superpowers`
+- 初始化完成後，刪除位於 repo root 的 `init.sh` 與 `init.ps1`
 
 ## 專案結構
 
@@ -61,6 +70,8 @@ import "golan-example/pkg/logs"
 
 `logs.Configure()` 以 `sync.Once` 保護，僅首次呼叫生效，適合在 `main()` 或程式初始化階段呼叫一次。
 
+若想進一步了解如何設定 logs 模組，可參考 [`docs/logs-design.md` 的「pkg/logs 設定 API」章節](docs/logs-design.md#pkg/logs-設定-api)，裡面整理了 `Configure` 的預設值、設定 DSL 與合併規則。
+
 **零設定（使用預設值）**
 
 不呼叫 `Configure` 即可直接使用，預設行為為：全 level 啟用、Plain 格式、輸出至 Console（Debug/Info → stdout，Warn/Error → stderr）、帶 Caller 位置標記。
@@ -95,22 +106,3 @@ func main() {
 **Formatter**：`Plain()` / `JSON()`，可搭配 `WithTimeFormat(layout)` 調整時間格式。
 
 **Output**：`Console()` / `Stdout()` / `Stderr()` / `ToWriter(w)` / `ToFile(basePath, ext, cfg)`。
-
-## Makefile 指令
-
-| 指令 | 說明 |
-|---|---|
-| `make build` | 編譯至 `./bin/app` |
-| `make run` | 直接執行 `cmd/app` |
-| `make test` | 執行所有測試 |
-| `make lint` | 執行 golangci-lint 靜態分析 |
-| `make clean` | 清除編譯產物 |
-
-## 初始化腳本說明
-
-`scripts/init.sh` 和 `scripts/init.ps1` 功能相同：
-
-- 依據 `go.mod` 讀取模組名稱
-- 建立上述所有目錄與基礎 `.go` 檔案
-- 生成 `.gitignore`、`Makefile`、`Dockerfile`、`.env.example`
-- **冪等執行** — 已存在的檔案不會被覆蓋，可安全重複執行

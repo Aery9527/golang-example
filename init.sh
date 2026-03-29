@@ -8,16 +8,8 @@ set -euo pipefail
 # ──────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$SCRIPT_DIR"
 cd "$ROOT_DIR"
-
-# Read module name from go.mod
-if [ ! -f go.mod ]; then
-  echo "ERROR: go.mod not found in $ROOT_DIR" >&2
-  exit 1
-fi
-MODULE=$(head -1 go.mod | awk '{print $2}')
-echo "Module: $MODULE"
 
 # ── Helper: write file only if it doesn't exist ──
 write_file() {
@@ -194,9 +186,9 @@ echo "  CLEAR  README.md"
 rm -rf "docs/superpowers"
 echo "  DELETE docs/superpowers"
 
-rm -f "scripts/init.sh" "scripts/init.ps1"
-echo "  DELETE scripts/init.sh"
-echo "  DELETE scripts/init.ps1"
+rm -f "init.sh" "init.ps1"
+echo "  DELETE init.sh"
+echo "  DELETE init.ps1"
 
 echo ""
 echo "================================================"
