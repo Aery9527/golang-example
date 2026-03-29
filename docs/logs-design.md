@@ -27,7 +27,7 @@
 
 專案目前只有極簡的 [`pkg/logger/logger.go`](../pkg/logger/logger.go)（僅 `Info` / `Error` 兩個 wrapper），全 codebase 零 import，無 logging 基礎設施。
 
-**目標**：建立以 decorator pattern 為核心的自建 logging 模組，支援 per-level 獨立 decorator chain、全 lazy closure API、結構化 kv-pair 輸出，以及透過 duck-typing 零耦合偵測 [`pkg/errs`](../pkg/errs/errs.go) 的結構化欄位。
+**目標**：建立以 decorator pattern 為核心的自建 logging 模組，支援 per-level 獨立 decorator chain、全 lazy closure API、結構化 kv-pair 輸出，以及透過 duck-typing 零耦合偵測 [`internal/errs`](../internal/errs/errs.go) 的結構化欄位。
 
 | 目標 | 說明 |
 |------|------|
@@ -57,7 +57,7 @@
 | D3 | 模組位置 | `internal/logs`（引擎 + API）+ `pkg/logs`（設定入口） | Monorepo 場景：其他 module 可 import 設定 API 但不能碰實作細節 |
 | D4 | Per-level 設定 | 4 個 level 各自持有獨立 `Chain`，支援完全不同的 decorator 組合 | 類似 Java SLF4J / Logback 的 Appender 概念，每個 level 可以有不同的 format × output 組合 |
 | D5 | Decorator chain | 單一 `Handler` interface + `next` 串接 | 所有維度實作同一個 interface，串接順序由使用者控制，新增維度只需實作 `Handler` |
-| D6 | Error 處理 | duck-typing 偵測，不 import `pkg/errs` | `FormatStack() string` 回傳 stdlib 型別，任何 error library 只需實作同簽名方法即可相容 |
+| D6 | Error 處理 | duck-typing 偵測，不 import `internal/errs` | `FormatStack() string` 回傳 stdlib 型別，任何 error library 只需實作同簽名方法即可相容 |
 | D7 | Log func 回傳值 | 不回傳 error，fire-and-forget | Log 系統回傳 error 呼叫端無法處理，內部消化所有失敗並 fallback |
 | D8 | With-error variant 命名 | `InfoWith` / `DebugWith` / `WarnWith` / `ErrorWith` | `With` suffix 語意清晰，避免 `ErrorErr` 的尷尬 |
 | D9 | nil closure | 允許 `logs.Info("msg", nil)` 代表無 kv-pairs | 避免純 message log 必須寫 `func() []any { return nil }` 的冗長 |
@@ -117,7 +117,7 @@ flowchart LR
     pkg["pkg/logs<br/>設定入口"]
     internal["internal/logs<br/>引擎 + API"]
     stdlib["Go stdlib<br/>io, fmt, encoding/json,<br/>sync, time, runtime, os"]
-    errs["pkg/errs"]
+    errs["internal/errs"]
 
     ext -->|"import 設定"| pkg
     pkg -->|"import"| internal
@@ -376,7 +376,7 @@ yymmdd HH:mm:ss.SSS [%-5s] message
 
 ## Error Duck-Typing 偵測
 
-`internal/logs` **不 import `pkg/errs`**。所有結構化欄位偵測皆透過未匯出的 duck-typing 介面。
+`internal/logs` **不 import `internal/errs`**。所有結構化欄位偵測皆透過未匯出的 duck-typing 介面。
 
 ### 偵測介面
 
@@ -428,7 +428,7 @@ flowchart TD
     style StackNull fill:#f8d7da,stroke:#dc3545,color:#721c24
 ```
 
-### 與 [pkg/errs](../docs/errs.md) 的相容性
+### 與 [internal/errs](../docs/errs.md) 的相容性
 
 `*errs.Error` 同時實作 `Code() string`、`Message() string`、`FormatStack() string`，自動滿足所有三個 duck-typing 介面。任何第三方 error library 只需實作相同簽名方法即可相容。
 

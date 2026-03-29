@@ -1,4 +1,4 @@
-# `pkg/errs` — 視覺化架構指南
+# `internal/errs` — 視覺化架構指南
 
 ## 快速導覽
 
@@ -205,7 +205,7 @@ flowchart TD
 
 ## FormatStack 與 Duck-Typing
 
-這是 `pkg/errs` 最關鍵的設計決策之一——為什麼需要 `FormatStack()` 以及它如何實現零耦合。
+這是 `internal/errs` 最關鍵的設計決策之一——為什麼需要 `FormatStack()` 以及它如何實現零耦合。
 
 ### 問題：Go Interface 的型別耦合陷阱
 
@@ -214,7 +214,7 @@ flowchart LR
     subgraph problem["❌ 型別耦合問題"]
         direction TB
         Log1["pkg/log 定義介面：\nStackTracer { StackTrace() ??? }"]
-        Errs1["pkg/errs 的方法：\nStackTrace() errs.Stack"]
+        Errs1["internal/errs 的方法：\nStackTrace() errs.Stack"]
         Log1 -.->|"回傳型別必須完全一致"| Import["pkg/log 必須 import errs.Stack"]
         Import -->|"產生直接依賴"| Coupled["❌ 違反零耦合目標"]
     end
@@ -222,7 +222,7 @@ flowchart LR
     subgraph solution["✅ FormatStack 解法"]
         direction TB
         Log2["pkg/log 定義介面：\nstackProvider { FormatStack() string }"]
-        Errs2["pkg/errs 的方法：\nFormatStack() string"]
+        Errs2["internal/errs 的方法：\nFormatStack() string"]
         Log2 -.->|"回傳 stdlib string"| NoImport["無需 import 任何型別"]
         NoImport -->|"Go duck-typing 自動滿足"| Decoupled["✅ 零耦合達成"]
     end
@@ -232,7 +232,7 @@ flowchart LR
 
 ### 三層偵測策略
 
-`pkg/log` 從 `error` 中萃取結構化資訊時，依序嘗試三層偵測——不需要 import `pkg/errs`。
+`pkg/log` 從 `error` 中萃取結構化資訊時，依序嘗試三層偵測——不需要 import `internal/errs`。
 
 ```mermaid
 flowchart TD
@@ -262,7 +262,7 @@ flowchart TD
 
 | 方法 | 回傳型別 | duck-typing 可行性 | 適用場景 |
 |------|----------|-------------------|----------|
-| `StackTrace()` | `errs.Stack`（自定義型別） | ❌ 消費端必須 import `pkg/errs` | 程式內部需要逐 frame 存取時 |
+| `StackTrace()` | `errs.Stack`（自定義型別） | ❌ 消費端必須 import `internal/errs` | 程式內部需要逐 frame 存取時 |
 | `FormatStack()` | `string`（stdlib 型別） | ✅ 任何模組可定義相同簽名 | 日誌、監控等只需文字表示時 |
 
 > **共存設計**：兩個方法並存——`StackTrace()` 給需要結構化存取的場景，`FormatStack()` 給跨模組零耦合的場景。
@@ -273,11 +273,11 @@ flowchart TD
 
 ## 跨模組零耦合架構
 
-`pkg/errs` 與未來 `pkg/log` 之間的依賴關係——透過 duck-typing interface 達成完全解耦。
+`internal/errs` 與未來 `pkg/log` 之間的依賴關係——透過 duck-typing interface 達成完全解耦。
 
 ```mermaid
 flowchart TD
-    subgraph errs_pkg["pkg/errs"]
+    subgraph errs_pkg["internal/errs"]
         direction TB
         ErrType["Error struct"]
         Methods["Code() string\nMessage() string\nFormatStack() string\nStackTrace() Stack"]

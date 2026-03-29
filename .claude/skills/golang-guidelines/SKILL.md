@@ -15,8 +15,8 @@ description: >-
 ## 錯誤處理
 
 - 錯誤需被處理或明確忽略（`_ = ...`），不可靜默丟棄。
-- **一律使用 `pkg/errs` 回傳錯誤**：新建錯誤用 `errs.New(code, msg)` / `errs.Newf(code, fmt, args...)`；包裝既有錯誤用 `errs.Wrap(err, code, msg)` / `errs.Wrapf(err, code, fmt, args...)`。不使用 `fmt.Errorf("...: %w", err)` 或 `errors.New()`。
-- 函式回傳 error 時，回傳型別一律寫 `error` 介面（Go 慣例），實際回傳值使用 `*errs.Error`；接收外部 library 的 `error` 後以 `errs.Wrap` 轉換再回傳。這確保消費端無需依賴 `pkg/errs` 即可接收錯誤。
+- **一律使用 `internal/errs` 回傳錯誤**：新建錯誤用 `errs.New(code, msg)` / `errs.Newf(code, fmt, args...)`；包裝既有錯誤用 `errs.Wrap(err, code, msg)` / `errs.Wrapf(err, code, fmt, args...)`。不使用 `fmt.Errorf("...: %w", err)` 或 `errors.New()`。
+- 函式回傳 error 時，回傳型別一律寫 `error` 介面（Go 慣例），實際回傳值使用 `*errs.Error`；接收外部 library 的 `error` 後以 `errs.Wrap` 轉換再回傳。這確保消費端無需依賴 `internal/errs` 即可接收錯誤。
 - 判斷錯誤用 `errors.Is` / `errors.As`，不直接比對字串；需要取得 code、message 或 stack 時，使用 `errors.As` 抽取 `*errs.Error` 再呼叫 `Code()` / `Message()` / `FormatStack()`。`FormatStack()` 回傳 `string`（stdlib 型別），專為 duck-typing 偵測設計（如 `pkg/log`），避免跨模組型別耦合；`StackTrace()` 回傳 `errs.Stack` 供需要結構化存取 frame 的場景使用。
 - 自訂錯誤型別實作 `error` 介面時，套用靜態驗證（`var _ error = (*YourError)(nil)`）。
 - 不在 library 程式碼中使用 `panic`；`panic` 僅限程式初始化階段的不可回復錯誤。

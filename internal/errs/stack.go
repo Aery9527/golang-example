@@ -7,7 +7,7 @@ import (
 
 // Frame 代表 call stack 中的一個位置。
 type Frame struct {
-	Function string // 完整函式名稱，例如 "golan-example/pkg/errs_test.TestNew"
+	Function string // 完整函式名稱，例如 "golan-example/internal/errs_test.TestNew"
 	File     string // 原始碼檔案 basename，例如 "errs_test.go"
 	Line     int    // 原始碼行號
 }

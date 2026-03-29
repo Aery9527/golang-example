@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"golan-example/pkg/errs"
+	"golan-example/internal/errs"
 )
 
 // E1: New 建立含 code + 原始 message + stack 的 error。
