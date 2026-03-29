@@ -15,11 +15,17 @@ description: >-
 ## 錯誤處理
 
 - 錯誤需被處理或明確忽略（`_ = ...`），不可靜默丟棄。
-- **一律使用 `internal/errs` 回傳錯誤**：新建錯誤用 `errs.New(code, msg)` / `errs.Newf(code, fmt, args...)`；包裝既有錯誤用 `errs.Wrap(err, code, msg)` / `errs.Wrapf(err, code, fmt, args...)`。不使用 `fmt.Errorf("...: %w", err)` 或 `errors.New()`。
-- 函式回傳 error 時，回傳型別一律寫 `error` 介面（Go 慣例），實際回傳值使用 `*errs.Error`；接收外部 library 的 `error` 後以 `errs.Wrap` 轉換再回傳。這確保消費端無需依賴 `internal/errs` 即可接收錯誤。
-- 判斷錯誤用 `errors.Is` / `errors.As`，不直接比對字串；需要取得 code、message 或 stack 時，使用 `errors.As` 抽取 `*errs.Error` 再呼叫 `Code()` / `Message()` / `FormatStack()`。`FormatStack()` 回傳 `string`（stdlib 型別），專為 duck-typing 偵測設計（如 `pkg/log`），避免跨模組型別耦合；`StackTrace()` 回傳 `errs.Stack` 供需要結構化存取 frame 的場景使用。
-- 自訂錯誤型別實作 `error` 介面時，套用靜態驗證（`var _ error = (*YourError)(nil)`）。
+- **一律使用 `internal/errs` 回傳錯誤**，不使用 `fmt.Errorf` 或 `errors.New`。
+- **不自訂錯誤型別**——所有錯誤一律使用 `*errs.Error`，以 error code 區分類別。
+- 函式回傳 error 時，型別一律寫 `error` 介面。
+- 判斷錯誤用 `errors.Is` / `errors.As`，不直接比對字串。
 - 不在 library 程式碼中使用 `panic`；`panic` 僅限程式初始化階段的不可回復錯誤。
+- 完整 API 用法與使用模式 → 見 [errs-use.md](errs-use.md)
+
+## 日誌
+
+- **一律使用 `pkg/logs`（設定）與 `internal/logs`（引擎）記錄日誌**，不使用 `fmt.Println`、`log.Printf` 或外部 logging library（zap、logrus 等）。
+- 完整 API 用法與使用模式 → 見 [logs-use.md](logs-use.md)
 
 ## 命名與可讀性
 
@@ -33,7 +39,7 @@ description: >-
 - 所有 `func` 宣告前都必須有註解，說明其目的、主要行為、重要副作用與關鍵輸入輸出；若行為不直觀、具副作用、會啟動並發、或呼叫方式容易誤用，需補上簡短 usage example。
 - 若某個 struct func 是為了滿足另一個模組的 duck-typing 偵測而實作，註解中必須明確說明目標模組與對應介面，例如 `// FormatStack 供 pkg/log 的 stackProvider duck-typing 偵測使用`。
 - 所有 `struct` field 都必須在欄位後方附上簡短註解，說明該欄位的意義或用途。
-- 若 `struct` field 內容有固定格式（通常是 string 或 []string），註解中必須明確舉例，例如 `platform.key`、`NAME_AGE`、`["redis:a:b", "redis:c:d"]`、等。
+- 若 `struct` field 內容有固定格式（通常是 string 或 []string），註解中必須明確舉例，例如 `platform.key`、`NAME_AGE`、`["redis_a_b", "redis_c_d"]`、等。
 
 ## Context
 
@@ -44,6 +50,7 @@ description: >-
 
 - goroutine 啟動前，明確說明誰負責等待（`sync.WaitGroup`）或回收（`errgroup`）。
 - channel 的方向在函式簽名中明確標示（`<-chan`、`chan<-`）。
+- 共享資源的延遲初始化或狀態檢查，視情況使用 double-checked locking（先無鎖讀、再加鎖確認）避免極端併發下的重複執行或競態條件。
 
 ## 測試
 
@@ -57,3 +64,19 @@ description: >-
 - `defer` 用於資源釋放（`Close`、`Unlock`）；在取得資源後立即 defer，不等到函式末尾。
 - 零值應具備可用性（zero value usability）；struct 初始化後不需額外呼叫 `Init()` 才能使用。
 - `init()` 僅用於確實必要的套件初始化，避免副作用難以追蹤；能用建構子解決的不用 `init()`。
+
+## 模組參考（按需載入）
+
+### 使用模組
+
+當需要在程式碼中使用這些模組時，讀取對應的使用指南：
+
+- 回傳或處理 error → [errs-use.md](errs-use.md)
+- 記錄日誌 → [logs-use.md](logs-use.md)
+
+### 修改模組
+
+當需要修改模組本身的實作時，讀取完整設計文件了解模組全貌：
+
+- 修改 `internal/errs` → [docs/errs.md](../../../docs/errs.md)
+- 修改 `internal/logs` 或 `pkg/logs` → [docs/logs-design.md](../../../docs/logs-design.md)

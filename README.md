@@ -82,11 +82,11 @@ import "golan-example/pkg/logs"
 func main() {
     logs.Configure(
         // 全 level 輸出 JSON 到 stdout
-        logs.Pipe(logs.JSON(), logs.Stdout()),
+        logs.Pipe(logs.JSON(), logs.ToStdout()),
 
         // Error level 額外寫入 rotating file
         logs.ForError(
-            logs.Pipe(logs.JSON(), logs.ToFile("/var/log/app", ".log", logs.RotateConfig{})),
+            logs.Pipe(logs.JSON(), logs.ToFile("/var/log/app", logs.RotateConfig{})),
         ),
     )
 }

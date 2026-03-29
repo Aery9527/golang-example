@@ -35,6 +35,16 @@ func New(code, message string) *Error {
 	}
 }
 
+// NewWithSkip 行為同 New，但額外跳過 skip 層 stack frame。供外部包裝層（如
+// pkg/errc）使用，確保 stack trace 起點為實際呼叫者而非包裝函式。
+func NewWithSkip(skip int, code, message string) *Error {
+	return &Error{
+		code:    code,
+		message: message,
+		stack:   capture(3 + skip),
+	}
+}
+
 // Newf 以指定的 code 與格式化 message 建立根 Error。code 與 stack trace
 // 行為請參考 New。
 func Newf(code, format string, args ...any) *Error {
@@ -42,6 +52,16 @@ func Newf(code, format string, args ...any) *Error {
 		code:    code,
 		message: fmt.Sprintf(format, args...),
 		stack:   capture(3),
+	}
+}
+
+// NewfWithSkip 行為同 Newf，但額外跳過 skip 層 stack frame。供外部包裝層（如
+// pkg/errc）使用，確保 stack trace 起點為實際呼叫者而非包裝函式。
+func NewfWithSkip(skip int, code, format string, args ...any) *Error {
+	return &Error{
+		code:    code,
+		message: fmt.Sprintf(format, args...),
+		stack:   capture(3 + skip),
 	}
 }
 
