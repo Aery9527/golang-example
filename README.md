@@ -18,12 +18,6 @@ bash scripts/init.sh
 pwsh scripts/init.ps1
 ```
 
-### 3. 執行
-
-```bash
-go run ./cmd/app
-```
-
 ## 專案結構
 
 ```
@@ -59,6 +53,51 @@ go run ./cmd/app
 ├── Makefile
 └── go.mod
 ```
+
+## 作為 Library 使用
+
+若將此 repo 作為依賴引入，可透過 `pkg/logs` 設定 logging 輸出行為。
+
+```go
+import "golan-example/pkg/logs"
+```
+
+`logs.Configure()` 以 `sync.Once` 保護，僅首次呼叫生效，適合在 `main()` 或程式初始化階段呼叫一次。
+
+**零設定（使用預設值）**
+
+不呼叫 `Configure` 即可直接使用，預設行為為：全 level 啟用、Plain 格式、輸出至 Console（Debug/Info → stdout，Warn/Error → stderr）、帶 Caller 位置標記。
+
+**自訂輸出**
+
+```go
+func main() {
+    logs.Configure(
+        // 全 level 輸出 JSON 到 stdout
+        logs.Pipe(logs.JSON(), logs.Stdout()),
+
+        // Error level 額外寫入 rotating file
+        logs.ForError(
+            logs.Pipe(logs.JSON(), logs.ToFile("/var/log/app", ".log", logs.RotateConfig{})),
+        ),
+    )
+}
+```
+
+**可用選項**
+
+| 選項 | 說明 |
+|---|---|
+| `Pipe(formatter, output)` | 將指定 formatter 的輸出送往 output |
+| `ForDebug / ForInfo / ForWarn / ForError` | 針對特定 level 套用獨立設定 |
+| `NoCaller()` | 停用 caller 位置注入 |
+| `NoInherit()` | level 設定不繼承全域設定 |
+| `WithFilter(...)` | 加入 MessageFilter 或 KeyFilter |
+| `WithEnrichment(...)` | 加入 Static enricher |
+
+**Formatter**：`Plain()` / `JSON()`，可搭配 `WithTimeFormat(layout)` 調整時間格式。
+
+**Output**：`Console()` / `Stdout()` / `Stderr()` / `ToWriter(w)` / `ToFile(basePath, ext, cfg)`。
 
 ## Makefile 指令
 
