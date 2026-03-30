@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+MODE="${1:?mode must be ci or dev}"
+case "$MODE" in
+    ci|dev)
+        ;;
+    *)
+        echo "mode must be ci or dev: got '$MODE'" >&2
+        exit 2
+        ;;
+esac
+shift || true
+
+GO_BIN="$(command -v go 2>/dev/null || command -v go.exe 2>/dev/null || true)"
+if [[ -z "$GO_BIN" ]]; then
+    echo "go executable not found in PATH" >&2
+    exit 127
+fi
+
+TEST_ROOTS=("internal" "pkg")
+ARTIFACT_DIR="$REPO_ROOT/test-output/${MODE}-test"
+mkdir -p "$ARTIFACT_DIR"
+
+TARGETS=()
+for root in "${TEST_ROOTS[@]}"; do
+    TARGETS+=("./${root}/...")
+done
+
+EXTRA_ARGS=("$@")
+STDOUT_FILE="$ARTIFACT_DIR/stdout.log"
+for arg in "${EXTRA_ARGS[@]}"; do
+    if [[ "$arg" == "-json" ]]; then
+        STDOUT_FILE="$ARTIFACT_DIR/stdout.jsonl"
+        break
+    fi
+done
+
+GO_ARGS=("test")
+if [[ "$MODE" == "ci" ]]; then
+    GO_ARGS+=("-short")
+fi
+if [[ "$MODE" == "dev" ]]; then
+    GO_ARGS+=("-coverprofile=$ARTIFACT_DIR/coverage.out")
+fi
+GO_ARGS+=("${EXTRA_ARGS[@]}" "${TARGETS[@]}")
+
+{
+    printf 'go'
+    for arg in "${GO_ARGS[@]}"; do
+        printf ' %q' "$arg"
+    done
+    printf '\n'
+} > "$ARTIFACT_DIR/command.txt"
+
+set +e
+"$GO_BIN" "${GO_ARGS[@]}" >"$STDOUT_FILE" 2>"$ARTIFACT_DIR/stderr.log"
+EXIT_CODE=$?
+set -e
+
+printf '%s\n' "$EXIT_CODE" > "$ARTIFACT_DIR/exit-code.txt"
+
+cat "$STDOUT_FILE"
+if [[ -s "$ARTIFACT_DIR/stderr.log" ]]; then
+    cat "$ARTIFACT_DIR/stderr.log" >&2
+fi
+
+if [[ "$MODE" == "dev" && -f "$ARTIFACT_DIR/coverage.out" ]]; then
+    "$GO_BIN" tool cover -func="$ARTIFACT_DIR/coverage.out" | tee "$ARTIFACT_DIR/coverage-summary.txt"
+fi
+
+exit "$EXIT_CODE"
