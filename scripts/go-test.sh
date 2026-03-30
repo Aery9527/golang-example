@@ -41,6 +41,21 @@ for arg in "${EXTRA_ARGS[@]}"; do
     fi
 done
 
+SIBLING_STDOUT_FILE="$ARTIFACT_DIR/stdout.log"
+if [[ "$STDOUT_FILE" == "$SIBLING_STDOUT_FILE" ]]; then
+    SIBLING_STDOUT_FILE="$ARTIFACT_DIR/stdout.jsonl"
+fi
+
+EXIT_CODE=0
+cleanup() {
+    printf '%s\n' "$EXIT_CODE" > "$ARTIFACT_DIR/exit-code.txt"
+}
+trap cleanup EXIT
+
+rm -f "$SIBLING_STDOUT_FILE"
+: > "$STDOUT_FILE"
+: > "$ARTIFACT_DIR/stderr.log"
+
 validate_extra_args() {
     local expecting_value=""
     local arg
@@ -96,8 +111,6 @@ validate_extra_args() {
     fi
 }
 
-validate_extra_args "${EXTRA_ARGS[@]}"
-
 GO_ARGS=("test")
 if [[ "$MODE" == "ci" ]]; then
     GO_ARGS+=("-short")
@@ -115,6 +128,14 @@ GO_ARGS+=("${EXTRA_ARGS[@]}" "${TARGETS[@]}")
     printf '\n'
 } > "$ARTIFACT_DIR/command.txt"
 
+if ! VALIDATION_OUTPUT="$(validate_extra_args "${EXTRA_ARGS[@]}" 2>&1)"; then
+    EXIT_CODE=2
+    if [[ -n "$VALIDATION_OUTPUT" ]]; then
+        printf '%s\n' "$VALIDATION_OUTPUT" | tee "$ARTIFACT_DIR/stderr.log" >&2
+    fi
+    exit "$EXIT_CODE"
+fi
+
 set +e
 (
     cd "$REPO_ROOT"
@@ -122,8 +143,6 @@ set +e
 )
 EXIT_CODE=$?
 set -e
-
-printf '%s\n' "$EXIT_CODE" > "$ARTIFACT_DIR/exit-code.txt"
 
 cat "$STDOUT_FILE"
 if [[ -s "$ARTIFACT_DIR/stderr.log" ]]; then
