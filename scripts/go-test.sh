@@ -39,6 +39,41 @@ for arg in "${EXTRA_ARGS[@]}"; do
     fi
 done
 
+validate_extra_args() {
+    local expecting_value=""
+    local arg
+
+    for arg in "$@"; do
+        if [[ -n "$expecting_value" ]]; then
+            if [[ "$arg" == -* ]]; then
+                echo "invalid extra arg '$arg': expected a value for '$expecting_value'; package patterns are fixed to ./internal/... and ./pkg/..." >&2
+                exit 2
+            fi
+
+            expecting_value=""
+            continue
+        fi
+
+        if [[ "$arg" != -* ]]; then
+            echo "invalid extra arg '$arg': package patterns are fixed to ./internal/... and ./pkg/...; extra args may only be flags or flag values" >&2
+            exit 2
+        fi
+
+        case "$arg" in
+            -bench|-benchtime|-count|-covermode|-coverpkg|-coverprofile|-cpu|-list|-outputdir|-parallel|-run|-shuffle|-skip|-timeout|-vet)
+                expecting_value="$arg"
+                ;;
+        esac
+    done
+
+    if [[ -n "$expecting_value" ]]; then
+        echo "invalid extra arg '$expecting_value': expected a value; package patterns are fixed to ./internal/... and ./pkg/..." >&2
+        exit 2
+    fi
+}
+
+validate_extra_args "${EXTRA_ARGS[@]}"
+
 GO_ARGS=("test")
 if [[ "$MODE" == "ci" ]]; then
     GO_ARGS+=("-short")
