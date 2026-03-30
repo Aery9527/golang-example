@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
+set -u
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -44,6 +46,12 @@ validate_extra_args() {
     local arg
     for arg in "$@"; do
         if [[ -n "$expecting_value" ]]; then
+            case "$arg" in
+                ./...|...|*/...)
+                    echo "invalid extra arg '$arg': explicit package/path scope widening is not allowed; package patterns are fixed to ./internal/... and ./pkg/..." >&2
+                    exit 2
+                    ;;
+            esac
             if [[ "$expecting_value" == "-coverprofile" ]]; then
                 echo "invalid extra arg '$expecting_value': -coverprofile is reserved for the runner's dev-mode coverage artifact path" >&2
             elif [[ "$arg" == -* ]]; then
@@ -62,6 +70,9 @@ validate_extra_args() {
         fi
 
         case "$arg" in
+            -tags)
+                expecting_value="$arg"
+                ;;
             -coverprofile)
                 expecting_value="$arg"
                 ;;
@@ -105,7 +116,10 @@ GO_ARGS+=("${EXTRA_ARGS[@]}" "${TARGETS[@]}")
 } > "$ARTIFACT_DIR/command.txt"
 
 set +e
-"$GO_BIN" "${GO_ARGS[@]}" >"$STDOUT_FILE" 2>"$ARTIFACT_DIR/stderr.log"
+(
+    cd "$REPO_ROOT"
+    "$GO_BIN" "${GO_ARGS[@]}" >"$STDOUT_FILE" 2>"$ARTIFACT_DIR/stderr.log"
+)
 EXIT_CODE=$?
 set -e
 
