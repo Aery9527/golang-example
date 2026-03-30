@@ -42,14 +42,16 @@ done
 validate_extra_args() {
     local expecting_value=""
     local arg
-
     for arg in "$@"; do
         if [[ -n "$expecting_value" ]]; then
-            if [[ "$arg" == -* ]]; then
+            if [[ "$expecting_value" == "-coverprofile" ]]; then
+                echo "invalid extra arg '$expecting_value': -coverprofile is reserved for the runner's dev-mode coverage artifact path" >&2
+            elif [[ "$arg" == -* ]]; then
                 echo "invalid extra arg '$arg': expected a value for '$expecting_value'; package patterns are fixed to ./internal/... and ./pkg/..." >&2
+            fi
+            if [[ "$expecting_value" == "-coverprofile" || "$arg" == -* ]]; then
                 exit 2
             fi
-
             expecting_value=""
             continue
         fi
@@ -60,14 +62,25 @@ validate_extra_args() {
         fi
 
         case "$arg" in
-            -bench|-benchtime|-count|-covermode|-coverpkg|-coverprofile|-cpu|-list|-outputdir|-parallel|-run|-shuffle|-skip|-timeout|-vet)
+            -coverprofile)
+                expecting_value="$arg"
+                ;;
+            -coverprofile=*)
+                echo "invalid extra arg '$arg': -coverprofile is reserved for the runner's dev-mode coverage artifact path" >&2
+                exit 2
+                ;;
+            -bench|-benchtime|-count|-covermode|-coverpkg|-cpu|-list|-outputdir|-parallel|-run|-shuffle|-skip|-timeout|-vet)
                 expecting_value="$arg"
                 ;;
         esac
     done
 
     if [[ -n "$expecting_value" ]]; then
-        echo "invalid extra arg '$expecting_value': expected a value; package patterns are fixed to ./internal/... and ./pkg/..." >&2
+        if [[ "$expecting_value" == "-coverprofile" ]]; then
+            echo "invalid extra arg '$expecting_value': -coverprofile is reserved for the runner's dev-mode coverage artifact path" >&2
+        else
+            echo "invalid extra arg '$expecting_value': expected a value; package patterns are fixed to ./internal/... and ./pkg/..." >&2
+        fi
         exit 2
     fi
 }
