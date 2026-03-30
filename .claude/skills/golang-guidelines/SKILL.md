@@ -51,6 +51,10 @@ description: >-
 - goroutine 啟動前，明確說明誰負責等待（`sync.WaitGroup`）或回收（`errgroup`）。
 - channel 的方向在函式簽名中明確標示（`<-chan`、`chan<-`）。
 - 共享資源的延遲初始化或狀態檢查，視情況使用 double-checked locking（先無鎖讀、再加鎖確認）避免極端併發下的重複執行或競態條件。
+- 隨機數生成器（RNG）規劃要納入 thread-safety：**禁止在可能被多個 goroutine 共享的 struct 中持有 `math/rand.Rand` 實例**，因其內部狀態可變且非 thread-safe。
+- 一般並發場景應優先使用 `math/rand/v2` 的全域函式（如 `rand.IntN()`、`rand.Float64()`）；其底層採用 per-thread ChaCha8，天然適合多 goroutine 併行呼叫。
+- 若需要可重現的確定性隨機序列（例如測試），應建立獨立的 seeded RNG 實例，並確保該實例**不在 goroutine 間共享**；需要並行時，改為每個 goroutine 各自持有一份。
+- 原則：任何可能被並行存取的物件內部，都不應持有非 thread-safe 的可變狀態；RNG、快取游標、暫存 buffer 等共享前都必須先確認其併發安全性。
 
 ## 測試
 
