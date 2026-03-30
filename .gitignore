@@ -32,3 +32,6 @@ Thumbs.db
 
 # Worktrees
 .worktrees/
+
+# Test artifacts
+test-output/
