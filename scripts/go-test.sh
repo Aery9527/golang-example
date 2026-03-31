@@ -42,6 +42,21 @@ done
 
 EXTRA_ARGS=("$@")
 
+bool_flag_is_truthy() {
+    local value="${1,,}"
+    case "$value" in
+        1|t|true)
+            return 0
+            ;;
+        0|f|false)
+            return 1
+            ;;
+        *)
+            return 2
+            ;;
+    esac
+}
+
 stdout_file_for_args() {
     local arg
     for arg in "$@"; do
@@ -49,6 +64,12 @@ stdout_file_for_args() {
             -json|-json=true)
                 printf '%s\n' "$ARTIFACT_DIR/stdout.jsonl"
                 return 0
+                ;;
+            -json=*)
+                if bool_flag_is_truthy "${arg#-json=}"; then
+                    printf '%s\n' "$ARTIFACT_DIR/stdout.jsonl"
+                    return 0
+                fi
                 ;;
         esac
     done
@@ -125,8 +146,9 @@ validate_extra_args() {
         fi
 
         case "$arg" in
-            -tags)
-                expecting_value="$arg"
+            -args|-args=*)
+                echo "invalid extra arg '$arg': -args is not supported because the runner appends fixed package targets after user args" >&2
+                return 1
                 ;;
             -coverprofile)
                 expecting_value="$arg"
@@ -135,11 +157,20 @@ validate_extra_args() {
                 echo "invalid extra arg '$arg': -coverprofile is reserved for the runner's dev-mode coverage artifact path" >&2
                 return 1
                 ;;
+            -coverpkg)
+                expecting_value="$arg"
+                ;;
             -coverpkg=*)
                 validate_coverpkg_value "${arg#-coverpkg=}" || return 1
                 ;;
-            -bench|-benchtime|-count|-covermode|-coverpkg|-cpu|-list|-outputdir|-parallel|-run|-shuffle|-skip|-timeout|-vet)
+            -json|-json=*|-artifacts|-asan|-benchmem|-c|-cover|-failfast|-fullpath|-i|-msan|-race|-short|-trimpath|-v|-work|-x)
+                ;;
+            -asmflags|-bench|-benchtime|-blockprofile|-blockprofilerate|-count|-covermode|-cpu|-cpuprofile|-exec|-fuzz|-fuzzminimizetime|-fuzztime|-gcflags|-ldflags|-list|-memprofile|-memprofilerate|-mod|-modfile|-mutexprofile|-mutexprofilefraction|-o|-outputdir|-overlay|-p|-parallel|-pkgdir|-pgo|-run|-shuffle|-skip|-tags|-timeout|-toolexec|-trace|-vet|-vettool)
                 expecting_value="$arg"
+                ;;
+            *=*)
+                ;;
+            *)
                 ;;
         esac
     done
@@ -171,17 +202,17 @@ write_command_file() {
         if [[ -n "$prefix" ]]; then
             printf '%s' "$prefix"
         fi
-        printf 'go'
+        printf '(cd %q && %q' "$REPO_ROOT" "$GO_BIN"
         for arg in "${GO_ARGS[@]}"; do
             printf ' %q' "$arg"
         done
-        printf '\n'
+        printf ')\n'
     } > "$ARTIFACT_DIR/command.txt"
 }
 
 if ! VALIDATION_OUTPUT="$(validate_extra_args "${EXTRA_ARGS[@]}" 2>&1)"; then
     EXIT_CODE=2
-    write_command_file "validation failed before go test execution; blocked command: "
+    write_command_file "validation failed before go test execution; blocked shell command: "
     if [[ -n "$VALIDATION_OUTPUT" ]]; then
         printf '%s\n' "$VALIDATION_OUTPUT" | tee "$ARTIFACT_DIR/stderr.log" >&2
     fi
