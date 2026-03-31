@@ -104,14 +104,12 @@ native_path() {
 validate_coverpkg_value() {
     local value="$1"
     local part
-    local found_scope=0
     local COVERPKG_PARTS=()
 
     IFS=',' read -r -a COVERPKG_PARTS <<< "$value"
     for part in "${COVERPKG_PARTS[@]}"; do
         case "$part" in
             ./internal/...|./pkg/...)
-                found_scope=1
                 ;;
             *)
                 echo "invalid extra arg '$value': -coverpkg must stay within ./internal/... and ./pkg/... scopes" >&2
@@ -119,11 +117,6 @@ validate_coverpkg_value() {
                 ;;
         esac
     done
-
-    if [[ "$found_scope" -ne 1 ]]; then
-        echo "invalid extra arg '$value': -coverpkg must stay within ./internal/... and ./pkg/... scopes" >&2
-        return 1
-    fi
 }
 
 validate_extra_args() {
@@ -167,7 +160,7 @@ validate_extra_args() {
             -coverpkg=*)
                 validate_coverpkg_value "${arg#-coverpkg=}" || return 1
                 ;;
-            -json|-json=*|-artifacts|-asan|-benchmem|-c|-cover|-failfast|-fullpath|-i|-msan|-race|-short|-trimpath|-v|-work|-x)
+            -json|-json=*|-asan|-benchmem|-c|-cover|-failfast|-fullpath|-i|-msan|-race|-short|-trimpath|-v|-work|-x)
                 ;;
             -asmflags|-bench|-benchtime|-blockprofile|-blockprofilerate|-count|-covermode|-cpu|-cpuprofile|-exec|-fuzz|-fuzzminimizetime|-fuzztime|-gcflags|-ldflags|-list|-memprofile|-memprofilerate|-mod|-modfile|-mutexprofile|-mutexprofilefraction|-o|-outputdir|-overlay|-p|-parallel|-pkgdir|-pgo|-run|-shuffle|-skip|-tags|-timeout|-toolexec|-trace|-vet|-vettool)
                 expecting_value="$arg"

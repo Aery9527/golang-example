@@ -30,11 +30,9 @@ function Test-BoolTruthy {
         '1' { return $true }
         't' { return $true }
         'true' { return $true }
-        'yes' { return $true }
         '0' { return $false }
         'f' { return $false }
         'false' { return $false }
-        'no' { return $false }
         default { return $null }
     }
 }
@@ -75,12 +73,7 @@ function Test-CoverpkgValue {
         [string]$Value
     )
 
-    $parts = $Value -split ','
-    if ($parts.Count -eq 0) {
-        return "invalid extra arg '$Value': -coverpkg must stay within ./internal/... and ./pkg/... scopes"
-    }
-
-    foreach ($part in $parts) {
+    foreach ($part in ($Value -split ',')) {
         $scope = $part.Trim()
         if ($scope -ne './internal/...' -and $scope -ne './pkg/...') {
             return "invalid extra arg '$Value': -coverpkg must stay within ./internal/... and ./pkg/... scopes"
