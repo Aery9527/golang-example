@@ -1,0 +1,35 @@
+{
+  "skill_name": "go-commit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "My working tree mixes new error-code constants and README workflow updates. I am in a hurry. Help me decide the commit boundaries and the commit messages.",
+      "expected_output": "Refuses to squash unrelated work into one commit and proposes separate high-level commit messages.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I only want a local commit for a new pre-push quick-test workflow. Tell me how you would commit it.",
+      "expected_output": "Keeps the commit local, avoids running tests unless explicitly asked, and uses a high-level CI-oriented Conventional Commit message.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I changed writer.go and rotate.go so old rotated files are cleaned up automatically. Write the Conventional Commit message.",
+      "expected_output": "Returns a release-note-ready message describing the logging behavior change rather than the file edits.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Please give me a Conventional Commit message for these changes quickly: writer.go and rotate.go were modified.",
+      "expected_output": "Recognizes that the prompt provides no behavioral context and asks one focused question to understand the intent before writing any commit message. Does not invent a subject from file names alone.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "I am about to commit and push the new error-code constants. Help me do both.",
+      "expected_output": "Creates a local commit with a high-level Conventional Commit message and explicitly reminds the user that the pre-push hook will run ci-test before the push completes.",
+      "files": []
+    }
+  ]
+}
