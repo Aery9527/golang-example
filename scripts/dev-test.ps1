@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$null = & (Join-Path $PSScriptRoot 'go-test.ps1') -Mode dev @ExtraArgs
+& (Join-Path $PSScriptRoot 'go-test.ps1') -Mode dev @ExtraArgs
 $exitCode = $LASTEXITCODE
 
 exit [int]$exitCode
