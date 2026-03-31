@@ -84,15 +84,19 @@ STDOUT_FILE="$(stdout_file_for_args "${EXTRA_ARGS[@]}")"
 native_path() {
     local path="$1"
 
-    if command -v wslpath >/dev/null 2>&1; then
-        wslpath -w "$path"
-        return 0
-    fi
+    case "$GO_BIN" in
+        *.exe)
+            if command -v wslpath >/dev/null 2>&1; then
+                wslpath -w "$path"
+                return 0
+            fi
 
-    if command -v cygpath >/dev/null 2>&1; then
-        cygpath -w "$path"
-        return 0
-    fi
+            if command -v cygpath >/dev/null 2>&1; then
+                cygpath -w "$path"
+                return 0
+            fi
+            ;;
+    esac
 
     printf '%s\n' "$path"
 }
