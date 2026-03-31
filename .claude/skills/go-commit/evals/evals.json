@@ -30,6 +30,36 @@
       "prompt": "I am about to commit and push the new error-code constants. Help me do both.",
       "expected_output": "Creates a local commit with a high-level Conventional Commit message and explicitly reminds the user that the pre-push hook will run ci-test before the push completes.",
       "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "I am in a linked git worktree on branch feature/go-commit-workflow, and this worktree was created from planning/go-commit-workflow. Help me finish the local commit and tell me what you would ask me immediately after the commit.",
+      "expected_output": "Recognizes the linked worktree flow and ends by asking whether to rebase onto planning/go-commit-workflow, rebase onto another branch, or push the current branch to its remote.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "I am in a linked git worktree on branch feature/go-commit-workflow, but I have not told you what branch it originally came from. I only want the local commit flow for now. What would you ask me immediately after the commit?",
+      "expected_output": "Recognizes the linked worktree flow, offers the three next-step choices, and does not invent a source branch name. If the user chooses the source-branch rebase path later, it should ask which source branch to use.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "git worktree list shows the primary checkout on planning/go-commit-workflow and the linked worktree on feature/go-commit-workflow, but I have not told you what branch the linked worktree originally came from. What would you ask me after the local commit?",
+      "expected_output": "Treats the linked worktree as real, but does not treat planning/go-commit-workflow as the source branch just because the primary checkout currently uses it. The follow-up question should keep the source-branch option generic until the user names it.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "I am on a normal branch, not a linked worktree. Help me make a local docs commit and stop there.",
+      "expected_output": "Provides the local commit flow without adding the worktree-specific rebase-or-push follow-up menu.",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "I am in a linked worktree and just finished the local commit, but I have not told you the source branch. What do you ask me next?",
+      "expected_output": "Asks the three-choice worktree follow-up menu first. It does not immediately ask which branch the worktree came from or ask for a base commit before the user chooses the source-branch rebase path.",
+      "files": []
     }
   ]
 }
