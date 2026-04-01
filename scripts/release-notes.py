@@ -10,7 +10,10 @@ from typing import Dict, List, Optional, Tuple
 CONVENTIONAL_RE = re.compile(
     r"^(?P<type>[a-z]+)(?:\((?P<scope>[\w\-/]+)\))?(?P<breaking>!)?: (?P<summary>.+)$"
 )
-BREAKING_FOOTER_RE = re.compile(r"^BREAKING CHANGE:\s*(?P<note>.+)$", re.MULTILINE)
+BREAKING_FOOTER_RE = re.compile(
+    r"^BREAKING CHANGE:\s*(?P<note>.+(?:\n[ \t]+.+)*)",
+    re.MULTILINE,
+)
 GROUP_ORDER = ("feat", "fix", "refactor", "perf", "docs", "test", "chore", "build", "ci")
 OTHER_GROUPS = ("refactor", "docs", "test", "chore", "build", "ci")
 EXCLUDED_PREFIXES = ("Merge ", "merge:", "release:")
@@ -111,7 +114,9 @@ def parse_breaking_note(body: str) -> Optional[str]:
     match = BREAKING_FOOTER_RE.search(body)
     if match is None:
         return None
-    return match.group("note").strip()
+    # Normalize: join continuation lines (indented per Conventional Commits spec) into one string.
+    parts = [line.strip() for line in match.group("note").split("\n")]
+    return " ".join(p for p in parts if p)
 
 
 def build_report(repo_root: Path, revision_range: Optional[str]) -> Dict[str, object]:

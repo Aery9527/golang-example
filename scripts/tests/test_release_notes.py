@@ -181,7 +181,68 @@ class ReleaseNotesScriptTests(unittest.TestCase):
         self.assertIn("- logs: add retention policy", completed.stdout)
         self.assertFalse((repo / OUTPUT_PATH).exists())
 
-    def test_invalid_range_surfaces_a_clear_git_error(self) -> None:
+    def test_multiline_breaking_change_footer_is_fully_captured(self) -> None:
+        repo = self.make_repo()
+        self.commit(repo, "docs: seed repository")
+        self.run_git(repo, "tag", "v1.0.0")
+        self.commit(
+            repo,
+            "feat(api)!: drop legacy endpoint",
+            body=(
+                "BREAKING CHANGE: the /api/v1/users endpoint has been removed.\n"
+                "  Clients must migrate to /api/v2/users before upgrading.\n"
+                "  See the migration guide for details."
+            ),
+        )
+
+        self.run_script(repo)
+
+        payload = self.load_json(repo)
+        self.assertTrue(payload["has_breaking"])
+        note = payload["breaking_changes"][0]["note"]
+        self.assertIn("the /api/v1/users endpoint has been removed.", note)
+        self.assertIn("Clients must migrate to /api/v2/users before upgrading.", note)
+        self.assertIn("See the migration guide for details.", note)
+        # Normalized into a single string — no raw newlines
+        self.assertNotIn("\n", note)
+
+    def test_multiline_breaking_change_appears_in_full_in_markdown(self) -> None:
+        repo = self.make_repo()
+        self.commit(repo, "docs: seed repository")
+        self.run_git(repo, "tag", "v1.0.0")
+        self.commit(
+            repo,
+            "feat(api)!: drop legacy endpoint",
+            body=(
+                "BREAKING CHANGE: the /api/v1/users endpoint has been removed.\n"
+                "  Clients must migrate to /api/v2/users before upgrading."
+            ),
+        )
+
+        completed = self.run_script(repo, "--format=markdown")
+
+        self.assertIn("the /api/v1/users endpoint has been removed.", completed.stdout)
+        self.assertIn("Clients must migrate to /api/v2/users before upgrading.", completed.stdout)
+
+    def test_single_line_breaking_change_footer_unchanged(self) -> None:
+        repo = self.make_repo()
+        self.commit(repo, "docs: seed repository")
+        self.run_git(repo, "tag", "v1.0.0")
+        self.commit(
+            repo,
+            "feat(api)!: remove legacy payload",
+            body="BREAKING CHANGE: clients must send the v2 request body",
+        )
+
+        self.run_script(repo)
+
+        payload = self.load_json(repo)
+        self.assertEqual(
+            payload["breaking_changes"][0]["note"],
+            "clients must send the v2 request body",
+        )
+
+
         repo = self.make_repo()
 
         completed = self.run_script(repo, "v9.9.9..HEAD", check=False)

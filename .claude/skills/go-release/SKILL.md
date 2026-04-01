@@ -42,7 +42,9 @@ description: >-
 3. 檢查 `git status --short`；若工作樹不乾淨，停止並要求先 commit 或 stash。
 4. 執行 `git fetch --all --tags --prune`。
 5. 若正常 release 且 `origin/develop` 領先本地，停止並要求先同步 `develop`。
-6. 執行 `ci-test`；若失敗，停止並指向 `test-output/ci-test/`。
+6. 執行 ci-test；若失敗，停止並指向 `test-output/ci-test/`。
+   - Unix / macOS：`bash scripts/ci-test.sh`
+   - Windows：`pwsh -File .\scripts\ci-test.ps1`
 7. 若自上一個 tag 以來沒有新 commits，停止並明說目前沒有可發布內容。
 
 [返回開頭](#快速導覽)
