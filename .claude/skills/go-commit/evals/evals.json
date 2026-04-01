@@ -3,62 +3,62 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "My working tree mixes new error-code constants and README workflow updates. I am in a hurry. Help me decide the commit boundaries and the commit messages.",
-      "expected_output": "Refuses to squash unrelated work into one commit and proposes separate high-level commit messages.",
+      "prompt": "我的工作樹混合了新的錯誤碼常數和 README 工作流程更新。我很趕時間，請幫我決定提交邊界和 commit 訊息。",
+      "expected_output": "拒絕將不相關的工作壓縮成一個 commit，並提議各自對應高層次意圖的獨立 commit 訊息。",
       "files": []
     },
     {
       "id": 2,
-      "prompt": "I only want a local commit for a new pre-push quick-test workflow. Tell me how you would commit it.",
-      "expected_output": "Keeps the commit local, avoids running tests unless explicitly asked, and uses a high-level CI-oriented Conventional Commit message.",
+      "prompt": "我只想為新的 pre-push 快速測試工作流程建立一個本地 commit，請告訴我你會如何提交。",
+      "expected_output": "保持 commit 在本地，除非明確要求否則不執行測試，並使用高層次、以 CI 為導向的 Conventional Commit 訊息。",
       "files": []
     },
     {
       "id": 3,
-      "prompt": "I changed writer.go and rotate.go so old rotated files are cleaned up automatically. Write the Conventional Commit message.",
-      "expected_output": "Returns a release-note-ready message describing the logging behavior change rather than the file edits.",
+      "prompt": "我修改了 writer.go 和 rotate.go，讓舊的 rotated 檔案可以自動清理。請撰寫 Conventional Commit 訊息。",
+      "expected_output": "回傳一個描述 logging 行為變更的 release note 就緒訊息，而非描述檔案編輯的訊息。",
       "files": []
     },
     {
       "id": 4,
-      "prompt": "Please give me a Conventional Commit message for these changes quickly: writer.go and rotate.go were modified.",
-      "expected_output": "Recognizes that the prompt provides no behavioral context and asks one focused question to understand the intent before writing any commit message. Does not invent a subject from file names alone.",
+      "prompt": "請快速給我這些變更的 Conventional Commit 訊息：writer.go 和 rotate.go 被修改了。",
+      "expected_output": "察覺到 prompt 沒有提供任何行為情境，在撰寫 commit 訊息前先問一個明確的問題以了解意圖。不要僅從檔案名稱編造 subject。",
       "files": []
     },
     {
       "id": 5,
-      "prompt": "I am about to commit and push the new error-code constants. Help me do both.",
-      "expected_output": "Creates a local commit with a high-level Conventional Commit message and explicitly reminds the user that the pre-push hook will run ci-test before the push completes.",
+      "prompt": "我即將提交並推送新的錯誤碼常數，請幫我完成這兩個步驟。",
+      "expected_output": "以高層次 Conventional Commit 訊息建立本地 commit，並明確提醒使用者 pre-push hook 將在推送完成前執行 ci-test。",
       "files": []
     },
     {
       "id": 6,
-      "prompt": "I am in a linked git worktree on branch feature/go-commit-workflow, and this worktree was created from planning/go-commit-workflow. Help me finish the local commit and tell me what you would ask me immediately after the commit.",
-      "expected_output": "Recognizes the linked worktree flow and ends by asking whether to rebase onto planning/go-commit-workflow, rebase onto another branch, or push the current branch to its remote.",
+      "prompt": "我在 branch feature/go-commit-workflow 的連結 git 工作樹中，此工作樹是從 planning/go-commit-workflow 建立的。請幫我完成本地 commit，並告訴我提交後你會立即問我什麼。",
+      "expected_output": "識別連結工作樹流程，並在最後詢問是否要 rebase 到 planning/go-commit-workflow、rebase 到其他分支，或將目前分支推送到遠端。",
       "files": []
     },
     {
       "id": 7,
-      "prompt": "I am in a linked git worktree on branch feature/go-commit-workflow, but I have not told you what branch it originally came from. I only want the local commit flow for now. What would you ask me immediately after the commit?",
-      "expected_output": "Recognizes the linked worktree flow, offers the three next-step choices, and does not invent a source branch name. If the user chooses the source-branch rebase path later, it should ask which source branch to use.",
+      "prompt": "我在 branch feature/go-commit-workflow 的連結 git 工作樹中，但我沒有告訴你它原本來自哪個分支。我現在只想完成本地 commit 流程。提交後你會立即問我什麼？",
+      "expected_output": "識別連結工作樹流程，提供三個後續步驟選項，且不編造來源分支名稱。若使用者之後選擇來源分支 rebase 路徑，應詢問要使用哪個來源分支。",
       "files": []
     },
     {
       "id": 8,
-      "prompt": "git worktree list shows the primary checkout on planning/go-commit-workflow and the linked worktree on feature/go-commit-workflow, but I have not told you what branch the linked worktree originally came from. What would you ask me after the local commit?",
-      "expected_output": "Treats the linked worktree as real, but does not treat planning/go-commit-workflow as the source branch just because the primary checkout currently uses it. The follow-up question should keep the source-branch option generic until the user names it.",
+      "prompt": "git worktree list 顯示主要 checkout 在 planning/go-commit-workflow，連結工作樹在 feature/go-commit-workflow，但我沒有告訴你連結工作樹最初來自哪個分支。本地 commit 後你會問我什麼？",
+      "expected_output": "將連結工作樹視為真實的，但不因主要 checkout 目前使用 planning/go-commit-workflow 就將其視為來源分支。後續問題應保持來源分支選項為通用描述，直到使用者明確命名為止。",
       "files": []
     },
     {
       "id": 9,
-      "prompt": "I am on a normal branch, not a linked worktree. Help me make a local docs commit and stop there.",
-      "expected_output": "Provides the local commit flow without adding the worktree-specific rebase-or-push follow-up menu.",
+      "prompt": "我在普通分支上，不是連結工作樹。請幫我建立一個本地 docs commit 然後停止。",
+      "expected_output": "提供本地 commit 流程，不加入工作樹專屬的 rebase 或推送後續選單。",
       "files": []
     },
     {
       "id": 10,
-      "prompt": "I am in a linked worktree and just finished the local commit, but I have not told you the source branch. What do you ask me next?",
-      "expected_output": "Asks the three-choice worktree follow-up menu first. It does not immediately ask which branch the worktree came from or ask for a base commit before the user chooses the source-branch rebase path.",
+      "prompt": "我在連結工作樹中剛完成本地 commit，但我沒有告訴你來源分支。你接下來會問我什麼？",
+      "expected_output": "先詢問三選項工作樹後續選單。不要立即詢問工作樹來自哪個分支，也不要在使用者選擇來源分支 rebase 路徑前就要求提供基礎 commit。",
       "files": []
     }
   ]

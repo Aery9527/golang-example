@@ -1,116 +1,116 @@
 ---
 name: go-commit
-description: Use when preparing a git commit in this Go repository, especially when the user asks to commit changes, choose commit boundaries, stage files, write a Conventional Commit message, or wrap up a linked worktree commit flow.
+description: 用於在此 Go 儲存庫中準備 git commit，尤其是當使用者要求提交變更、選擇提交邊界、暫存檔案、撰寫 Conventional Commit 訊息，或完成連結工作樹提交流程時使用。
 ---
 
 # go-commit
 
-## Overview
+## 概覽
 
-Turn the current working tree into one high-signal commit. Prioritize release-note-ready history: subjects should describe capability, behavior, or architectural meaning, not file edits.
+將目前工作樹轉化為一個高品質 commit。優先考量可用於 release note 的歷史紀錄：subject 應描述功能、行為或架構意義，而非檔案編輯操作。
 
-Local commits stay fast. Do not run `ci-test` or `dev-test` just to create a local commit unless the user explicitly asks. Push-time verification is handled by the repo's `pre-push` hook.
+本地提交保持快速。除非使用者明確要求，否則不要為了建立本地 commit 而執行 `ci-test` 或 `dev-test`。推送時的驗證由儲存庫的 `pre-push` hook 處理。
 
-If the current checkout is a linked worktree, do not stop at the local commit. Finish by asking how that worktree branch should be integrated next.
+若目前 checkout 是連結工作樹，不要在本地 commit 就停止。完成後詢問該工作樹分支接下來應如何整合。
 
-## When to Use
+## 使用時機
 
-- The user asks to commit current changes
-- The user wants a commit message or help staging the right files
-- The user wants to split mixed changes into separate commits
-- The user wants commit history that can be summarized into release notes
-- The user is finishing work in a linked git worktree and needs the next Git step after the local commit
+- 使用者要求提交目前的變更
+- 使用者需要 commit 訊息或協助暫存正確的檔案
+- 使用者想將混合的變更拆分為獨立的 commit
+- 使用者希望 commit 歷史可整理成 release note
+- 使用者在連結 git 工作樹中完成工作，並需要本地 commit 後的下一個 Git 步驟
 
-Do not use this skill for hook installation or push-debugging; use the repo scripts and hook workflow instead.
+此技能不適用於 hook 安裝或推送偵錯；請改用儲存庫腳本和 hook 工作流程。
 
-## Workflow
+## 工作流程
 
-1. Inspect `git status --short`, staged diff, and unstaged diff.
-2. Decide whether the changes represent one high-level intent. If not, stop and propose separate commits.
-3. Stage only the files for one intent.
-4. If one file contains hunks for multiple intents, use `git add -p` so each commit stays coherent.
-5. Choose `type` and optional `scope`.
-6. Write `type(scope): summary` in English, imperative mood, and high-level wording.
-7. If the diff reveals only low-level implementation details and the high-level intent cannot be reliably inferred, ask one focused question before finalizing the message.
-8. Add body or footer only for migration notes, breaking changes, or issue references.
-9. Create the local commit.
-10. Detect whether the current checkout is a linked worktree before suggesting the next Git step. Use `.git` indirection or `git worktree list --porcelain`; do not guess from directory naming alone.
-11. If the user also plans to push, remind them that `pre-push` will run `ci-test`.
-12. Git can confirm that the current checkout is a linked worktree and which branch is checked out there, but it does not reliably preserve the branch the worktree was originally created from. Treat the source branch as known only when the user or session context already established it.
-13. If the current checkout is a linked worktree, end with one focused question offering exactly three next-step choices: rebase onto the known source branch, rebase onto another branch, or push this branch to its remote.
-14. If the user chooses the source-branch rebase path and the source branch is not already known, ask one focused follow-up for that branch name before suggesting commands.
-15. If the current checkout is not a linked worktree, do not add the rebase-or-push menu unless the user explicitly asks for post-commit integration help.
-16. If the user explicitly told you the source branch, use that exact branch name in the follow-up question.
-17. Never infer the source branch from the primary checkout branch, another sibling worktree, or whatever branch happens to appear first in `git worktree list`; that data shows current checkouts, not the worktree's creation origin.
-18. Do not replace the three-choice worktree question with an immediate request for the source branch or base commit. Ask for the source branch only after the user picks the source-branch rebase path.
-19. Treat the repository root checkout as the primary checkout unless `.git` points into `.git/worktrees/...` or `git worktree list --porcelain` shows the current path as a non-primary worktree entry.
+1. 檢查 `git status --short`、已暫存差異和未暫存差異。
+2. 判斷變更是否代表單一高層次意圖。若否，停下來並提議分開 commit。
+3. 僅暫存屬於同一意圖的檔案。
+4. 若某一檔案包含多個意圖的 hunk，使用 `git add -p` 確保每個 commit 保持連貫性。
+5. 選擇 `type` 和可選的 `scope`。
+6. 以英文、祈使語氣、高層次措辭撰寫 `type(scope): summary`。
+7. 若 diff 只揭示底層實作細節而無法可靠推斷高層次意圖，在最終確定訊息前先問一個明確的問題。
+8. 僅在有遷移說明、重大變更或 issue 參考時才加入 body 或 footer。
+9. 建立本地 commit。
+10. 在建議下一個 Git 步驟前，偵測目前 checkout 是否為連結工作樹。使用 `.git` 間接指向或 `git worktree list --porcelain`；不要單憑目錄命名猜測。
+11. 若使用者也計畫推送，提醒他們 `pre-push` 將執行 `ci-test`。
+12. Git 可確認目前 checkout 是否為連結工作樹及其 checkout 的分支，但不能可靠地保留工作樹最初建立時的來源分支。只有當使用者或 session 情境已明確提供時，才將來源分支視為已知。
+13. 若目前 checkout 是連結工作樹，以一個明確的問題結束，提供恰好三個後續步驟選項：rebase 到已知來源分支、rebase 到其他分支、或將此分支推送到其遠端。
+14. 若使用者選擇來源分支 rebase 路徑而來源分支尚未知曉，在建議指令前先問一個明確的後續問題確認分支名稱。
+15. 若目前 checkout 不是連結工作樹，除非使用者明確要求提交後整合協助，否則不要加入 rebase 或推送選單。
+16. 若使用者已明確告知來源分支，在後續問題中使用該確切分支名稱。
+17. 絕對不要從主要 checkout 分支、其他兄弟工作樹、或 `git worktree list` 中第一個出現的分支推斷來源分支；那些資料顯示的是目前 checkout，而非工作樹的建立來源。
+18. 不要將三選項工作樹問題替換為立即詢問來源分支或基礎 commit 的問題。只有在使用者選擇來源分支 rebase 路徑後才詢問來源分支。
+19. 除非 `.git` 指向 `.git/worktrees/...` 或 `git worktree list --porcelain` 將目前路徑顯示為非主要工作樹條目，否則將儲存庫根目錄的 checkout 視為主要 checkout。
 
-## Quick Reference
+## 快速參考
 
-| Use `type` | When |
+| 使用 `type` | 時機 |
 | --- | --- |
-| `feat` | new capability or externally visible behavior |
-| `fix` | bug fix or corrected behavior |
-| `refactor` | internal reshaping without behavior change |
-| `docs` | documentation-only change |
-| `test` | test coverage or test workflow change |
-| `chore` | maintenance work that is not feature or bug fix |
-| `perf` | performance improvement |
-| `build` | dependency, packaging, or build-system change |
-| `ci` | hook, automation, or CI workflow change |
+| `feat` | 新功能或對外可見的行為 |
+| `fix` | 修復錯誤或修正行為 |
+| `refactor` | 不改變行為的內部重構 |
+| `docs` | 僅變更文件 |
+| `test` | 測試覆蓋率或測試工作流程變更 |
+| `chore` | 非功能或修復的維護工作 |
+| `perf` | 效能改善 |
+| `build` | 相依套件、打包或建構系統變更 |
+| `ci` | hook、自動化或 CI 工作流程變更 |
 
-## Worktree Follow-up
+## 工作樹後續問題
 
-When the current checkout is a linked worktree, use this closing question after the local commit:
+當目前 checkout 是連結工作樹時，在本地 commit 後使用此結束問題：
 
-- Known source branch: `Next step for this worktree branch: rebase onto <source-branch>, rebase onto another branch, or push this branch to remote?`
-- Unknown source branch: `Next step for this worktree branch: rebase onto its source branch, rebase onto another branch, or push this branch to remote?`
+- 來源分支已知：`此工作樹分支的下一步：rebase 到 <source-branch>、rebase 到其他分支，或將此分支推送到遠端？`
+- 來源分支未知：`此工作樹分支的下一步：rebase 到其來源分支、rebase 到其他分支，或將此分支推送到遠端？`
 
-Only turn the first option into a concrete branch name when that source branch is already known from the user or session context.
+只有在來源分支已從使用者或 session 情境中確認時，才將第一個選項替換為具體分支名稱。
 
-If the user already named the source branch, prefer that exact branch name over any guess from repository layout.
+若使用者已命名來源分支，優先使用該確切分支名稱，而非從儲存庫佈局猜測。
 
-Follow this order exactly:
+請依照此順序：
 
-| Situation | Next question |
+| 情境 | 下一個問題 |
 | --- | --- |
-| Primary checkout or non-worktree branch | No worktree follow-up menu unless the user asked for post-commit integration help |
-| Linked worktree, source branch known | Ask the three-choice menu and name that exact source branch |
-| Linked worktree, source branch unknown | Ask the same three-choice menu, but keep the source-branch option generic |
-| User picked source-branch rebase and source branch is still unknown | Ask one focused follow-up for the source branch name |
+| 主要 checkout 或非工作樹分支 | 除非使用者要求提交後整合協助，否則無工作樹後續選單 |
+| 連結工作樹，來源分支已知 | 詢問三選項選單並命名該確切來源分支 |
+| 連結工作樹，來源分支未知 | 詢問同樣的三選項選單，但保持來源分支選項為通用描述 |
+| 使用者選擇來源分支 rebase 且來源分支仍未知 | 詢問一個明確的後續問題確認來源分支名稱 |
 
-## Message Rules
+## 訊息規則
 
-- Keep `scope` when the affected area is clear.
-- Optimize the subject for future release notes.
-- Prefer describing what changed for users or operators, not which files moved.
-- Avoid generic summaries like `update`, `tweak`, `misc`, or `fix stuff`.
-- Avoid file-driven subjects like `update writer.go and rotate.go`.
-- If the intent is ambiguous, prefer one focused clarification over inventing a misleading message.
-- In linked worktrees, treat the post-commit branch decision as a separate focused question instead of silently assuming rebase or push.
-- If the user already named the source branch, prefer their stated branch over any repository heuristic.
-- Keep the three-choice worktree menu first; ask for the source branch only after the user chooses that path.
+- 當受影響的範圍明確時保留 `scope`。
+- 為未來的 release note 優化 subject。
+- 優先描述對使用者或操作者有何變化，而非哪些檔案移動了。
+- 避免使用 `update`、`tweak`、`misc`、`fix stuff` 等低品質摘要。
+- 避免以檔案為主體的 subject，如 `update writer.go and rotate.go`。
+- 若意圖不明確，優先進行一次明確的澄清，而非編造誤導性的訊息。
+- 在連結工作樹中，將提交後的分支決策視為一個獨立的明確問題，而非默默假設 rebase 或推送。
+- 若使用者已命名來源分支，優先使用其陳述的分支，而非任何儲存庫啟發式猜測。
+- 保持三選項工作樹選單在前；只有在使用者選擇該路徑後才詢問來源分支。
 
-## Common Mistakes
+## 常見錯誤
 
-- Mixing unrelated goals into one commit because of time pressure
-- Writing subjects that name files instead of behavior
-- Using low-signal messages like `chore: update files`
-- Running tests before a local commit when the user did not ask for it
-- Guessing a worktree's source branch from naming conventions or wishful thinking
-- Showing the worktree rebase-or-push menu even when the current checkout is not a linked worktree
-- Treating the primary checkout branch in `git worktree list` as proof of the linked worktree's source branch
-- Replacing the worktree three-choice question with `which branch did it come from?` before the user even chose a rebase path
+- 因時間壓力將不相關的目標混入一個 commit
+- 撰寫以檔案命名而非行為描述的 subject
+- 使用低品質訊息如 `chore: update files`
+- 在使用者未要求時於本地 commit 前執行測試
+- 從命名慣例或主觀猜測推斷工作樹的來源分支
+- 在目前 checkout 不是連結工作樹時仍顯示工作樹 rebase 或推送選單
+- 將 `git worktree list` 中的主要 checkout 分支視為連結工作樹來源分支的證明
+- 在使用者尚未選擇 rebase 路徑前，以「它來自哪個分支？」替換工作樹三選項問題
 
-## Examples
+## 範例
 
-Good:
+好的範例：
 
 - `ci(git): enforce quick scoped tests before push`
 - `fix(logs): clean up old rotated files automatically`
 - `feat(errc): add stable error code constants for callers`
 
-Bad:
+不好的範例：
 
 - `fix: improve writer rotation handling`
 - `feat: add new constants`
