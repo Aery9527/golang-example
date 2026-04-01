@@ -72,6 +72,12 @@
       "prompt": "release 和 tag 都完成了。你接下來會直接幫我 push 嗎？",
       "expected_output": "不自動推送；只提供明確的後續選項，例如推送 main + tags、同步 main 回 develop、或以上都做，等待使用者選擇。",
       "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "我在 develop 上準備 release。`git fetch --all --tags --prune` 之後，發現本地 main 落後 origin/main 三個 commits。go-release 接下來應該怎麼做？",
+      "expected_output": "在執行 ci-test、收集 release notes 或建議版本號之前先停止，要求先同步 main（例如 checkout main 後 pull origin main），同步完成後再回到起始分支重新開始 release。",
+      "files": []
     }
   ]
 }

@@ -42,10 +42,11 @@ description: >-
 3. 檢查 `git status --short`；若工作樹不乾淨，停止並要求先 commit 或 stash。
 4. 執行 `git fetch --all --tags --prune`。
 5. 若正常 release 且 `origin/develop` 領先本地，停止並要求先同步 `develop`。
-6. 執行 ci-test；若失敗，停止並指向 `test-output/ci-test/`。
+6. 確認本地 `main` 已存在，且在 `git fetch --all --tags --prune` 後沒有落後或分叉於 `origin/main`；若不同步，停止並要求先同步 `main`（例如 `git checkout main && git pull origin main`），完成後再回到起始分支重新開始 release。
+7. 執行 ci-test；若失敗，停止並指向 `test-output/ci-test/`。
    - Unix / macOS：`bash scripts/ci-test.sh`
    - Windows：`pwsh -File .\scripts\ci-test.ps1`
-7. 若自上一個 tag 以來沒有新 commits，停止並明說目前沒有可發布內容。
+8. 若自上一個 tag 以來沒有新 commits，停止並明說目前沒有可發布內容。
 
 [返回開頭](#快速導覽)
 
@@ -63,6 +64,7 @@ description: >-
 7. 正常 release 路徑（Merge 階段）：
    - `git checkout main`
    - `git pull origin main`
+   - 這一步只應是最後一次快轉同步確認；若此時仍發現 `main` 與 `origin/main` 分叉或無法乾淨同步，停止流程並請使用者先處理同步問題
    - 執行 `git merge --no-ff develop -m "release: vX.Y.Z"`
    - 若產生 conflict：立即通知使用者、列出衝突檔案、協助解決或明確建議 `git merge --abort`；**conflict 未解決或 merge 未完成前，不得繼續下一步**
 8. 正常 release 路徑（Tag 階段，僅在 merge 成功完成後執行）：

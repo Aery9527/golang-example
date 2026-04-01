@@ -242,7 +242,7 @@ class ReleaseNotesScriptTests(unittest.TestCase):
             "clients must send the v2 request body",
         )
 
-
+    def test_invalid_revision_range_returns_git_error(self) -> None:
         repo = self.make_repo()
 
         completed = self.run_script(repo, "v9.9.9..HEAD", check=False)
