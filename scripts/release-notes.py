@@ -40,6 +40,7 @@ def git(repo_root: Path, *args: str) -> str:
         ["git", *args],
         cwd=repo_root,
         text=True,
+        encoding="utf-8",
         capture_output=True,
     )
     if completed.returncode != 0:
@@ -53,6 +54,7 @@ def resolve_repo_root(cwd: Path) -> Path:
         ["git", "rev-parse", "--show-toplevel"],
         cwd=cwd,
         text=True,
+        encoding="utf-8",
         capture_output=True,
     )
     if completed.returncode != 0:
@@ -65,6 +67,7 @@ def get_previous_tag(repo_root: Path) -> Optional[str]:
         ["git", "describe", "--tags", "--abbrev=0"],
         cwd=repo_root,
         text=True,
+        encoding="utf-8",
         capture_output=True,
     )
     if completed.returncode == 0:
