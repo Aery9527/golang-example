@@ -58,19 +58,16 @@ description: >-
    - 無 breaking changes 但有 features：建議 MINOR bump
    - 其餘情況：建議 PATCH bump
 6. 使用者可接受或覆寫版本號；若格式不符 `vMAJOR.MINOR.PATCH`，要求重新輸入。
-7. 正常 release 路徑：
+7. 正常 release 路徑（Merge 階段）：
    - `git checkout main`
    - `git pull origin main`
-   - `git merge --no-ff develop -m "release: vX.Y.Z"`
+   - 執行 `git merge --no-ff develop -m "release: vX.Y.Z"`
+   - 若產生 conflict：立即通知使用者、列出衝突檔案、協助解決或明確建議 `git merge --abort`；**conflict 未解決或 merge 未完成前，不得繼續下一步**
+8. 正常 release 路徑（Tag 階段，僅在 merge 成功完成後執行）：
    - `git tag vX.Y.Z`
-8. Hotfix 路徑（當前分支是 `main`）：
+9. Hotfix 路徑（當前分支是 `main`）：
    - 不做 merge
    - 直接 `git tag vX.Y.Z`
-9. 若 `git merge --no-ff develop` 產生 conflict：
-   - 立即通知使用者 merge 失敗
-   - 列出衝突檔案
-   - 協助使用者解決，或明確建議 `git merge --abort`
-   - 只有在 conflict 解決並完成 merge 後，才繼續 `git tag vX.Y.Z`
 10. 完成後以一個明確的問題結束，只提供三個選項：
     - 推送 `main` + tags
     - 回到 `develop` 並 merge `main`
@@ -98,8 +95,23 @@ description: >-
 
 ## 收尾問題
 
-- 正常 release：`Release vX.Y.Z 完成。下一步：推送 main + tags、回到 develop 並同步 merge commit，或以上都做？`
-- Hotfix release：`Hotfix vX.Y.Z 完成。下一步：推送 main + tags、將 main merge 回 develop，或以上都做？`
+- 正常 release：
+
+  ```
+  Release vX.Y.Z 完成。下一步請選擇：
+  1. 推送 `main` + tags
+  2. 回到 `develop` 並 merge `main`（同步 merge commit）
+  3. 以上都做
+  ```
+
+- Hotfix release：
+
+  ```
+  Hotfix vX.Y.Z 完成。下一步請選擇：
+  1. 推送 `main` + tags
+  2. 將 `main` merge 回 `develop`
+  3. 以上都做
+  ```
 
 [返回開頭](#快速導覽)
 
