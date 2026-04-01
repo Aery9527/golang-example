@@ -35,3 +35,6 @@ Thumbs.db
 
 # Test artifacts
 test-output/
+
+# Playwright MCP artifacts
+.playwright-mcp/
