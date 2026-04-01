@@ -145,6 +145,21 @@ pwsh -File .\scripts\ci-test.ps1 -json
 pwsh -File .\scripts\dev-test.ps1 -count=1
 ```
 
+#### `go-test`（shared runner，不直接呼叫）
+
+- [scripts/go-test.sh](scripts/go-test.sh)
+- [scripts/go-test.ps1](scripts/go-test.ps1)
+
+`ci-test` 與 `dev-test` 的底層共用 runner，接收 `MODE` 參數（`ci` 或 `dev`）決定行為。一般不直接呼叫，由上層腳本代為傳入 mode。
+
+主要職責：
+
+- 根據 mode 組裝 `go test` 指令（`ci` 附加 `-short`；`dev` 附加 `-coverprofile`）
+- 驗證 extra args，封鎖不合法用法（`-coverprofile`、`-args`、超出 `./internal/...` 與 `./pkg/...` 範圍的 `-coverpkg`）
+- 將實際執行的指令寫入 `command.txt`，方便 debug 重放
+- 將 exit code 寫入 `exit-code.txt`
+- 處理跨平台路徑差異（WSL / Cygwin / native Windows）
+
 ### Test artifacts
 
 每次執行都會刷新 `test-output/` 下對應模式的 artifacts；此目錄已加入 `.gitignore`，不會進版控。
