@@ -1,0 +1,77 @@
+{
+  "skill_name": "go-release",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我目前在 feature/log-cleanup 分支，想直接發布 v1.4.0。請幫我做 go-release。",
+      "expected_output": "停止 release 流程，明確指出正常 release 必須從 develop 開始；只有 main 上的 hotfix 才能繞過 develop 起點。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我在 develop 上，但 working tree 還有未提交的變更。請直接幫我 release。",
+      "expected_output": "停止流程，要求先 commit 或 stash，不能在 dirty working tree 上繼續 release。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "我在 develop 上，想發布新版本。ci-test 剛剛失敗了，你接下來會怎麼做？",
+      "expected_output": "停止流程，指出 release 不能繼續，並引導使用者查看 test-output/ci-test/ artifacts。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "我在 develop 上，但自上一個 tag 之後完全沒有任何新 commits。請幫我 release。",
+      "expected_output": "停止流程，明確指出自上一個 tag 之後沒有可發布內容，因此不需要 release。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我在 develop 上，上一個 tag 是 v1.2.0，從那之後有 feat 和 fix。請幫我做完整 release。",
+      "expected_output": "先執行 release-notes 收集與 subagent 濃縮，再展示 release notes，之後才建議 MINOR bump，並在使用者確認後 merge 到 main、建立 lightweight tag，最後提供推送/同步 develop 的三選項。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "release notes 裡有 breaking changes，你會建議哪種版本號升級？",
+      "expected_output": "明確建議 MAJOR bump，且理由來自已確認的 release notes，而不是原始 commit 數量或檔案數量。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "你建議 v2.1.0，但我想改成 v2.0.5。接下來要怎麼處理？",
+      "expected_output": "接受使用者覆寫版本號，只要格式符合 vMAJOR.MINOR.PATCH，就依使用者指定的版本繼續。",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "在 `git merge --no-ff develop -m \"release: v1.5.0\"` 的時候發生 conflict。go-release 接下來應該怎麼做？",
+      "expected_output": "明確通知使用者 merge 失敗、列出衝突檔案、協助解決或建議 `git merge --abort`，並且只有在 conflict 解決後才繼續 tag。",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "我目前就在 main 上修了一個 hotfix，想直接發布。go-release 會怎麼走？",
+      "expected_output": "辨識 hotfix 路徑：仍要做前置檢查與 release notes，但跳過 merge develop 到 main，直接在 main HEAD 上建立 tag，最後提示是否把 main merge 回 develop。",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "從上一個 tag 之後只有 merge: 與 release: 這種流程 commit，沒有真正的新功能。go-release 應該怎麼反應？",
+      "expected_output": "忽略流程性 commit；若沒有任何可發布的有效 commits，應停止並說明目前沒有可發布內容。",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "release notes 還沒確認，我想先決定版本號。你會照做嗎？",
+      "expected_output": "拒絕跳過流程，明確說明必須先確認 release notes，再根據 notes 建議版本號。",
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "release 和 tag 都完成了。你接下來會直接幫我 push 嗎？",
+      "expected_output": "不自動推送；只提供明確的後續選項，例如推送 main + tags、同步 main 回 develop、或以上都做，等待使用者選擇。",
+      "files": []
+    }
+  ]
+}
