@@ -162,6 +162,25 @@ class ReleaseNotesScriptTests(unittest.TestCase):
         self.assertIn("- logs: preserve stderr sink", completed.stdout)
         self.assertFalse((repo / OUTPUT_PATH).exists())
 
+    def test_markdown_mode_includes_breaking_changes_section(self) -> None:
+        repo = self.make_repo()
+        self.commit(repo, "docs: seed repository")
+        self.run_git(repo, "tag", "v1.0.0")
+        self.commit(
+            repo,
+            "feat(api)!: remove legacy payload",
+            body="BREAKING CHANGE: clients must send the v2 request body",
+        )
+        self.commit(repo, "feat(logs): add retention policy")
+
+        completed = self.run_script(repo, "--format=markdown")
+
+        self.assertIn("## Breaking Changes", completed.stdout)
+        self.assertIn("- api: remove legacy payload — clients must send the v2 request body", completed.stdout)
+        self.assertIn("## Features", completed.stdout)
+        self.assertIn("- logs: add retention policy", completed.stdout)
+        self.assertFalse((repo / OUTPUT_PATH).exists())
+
     def test_invalid_range_surfaces_a_clear_git_error(self) -> None:
         repo = self.make_repo()
 
