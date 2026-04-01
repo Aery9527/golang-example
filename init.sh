@@ -191,6 +191,9 @@ echo "  DELETE init.sh"
 echo "  DELETE init.ps1"
 
 echo ""
+bash "$SCRIPT_DIR/scripts/install-git-hooks.sh"
+
+echo ""
 echo "================================================"
 echo "  專案結構初始化完成！"
 echo "  請編輯 README.md 開始這個專案的開發。"

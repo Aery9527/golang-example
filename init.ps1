@@ -223,6 +223,9 @@ foreach ($f in $scriptFiles) {
 }
 
 Write-Host ""
+& "$RootDir/scripts/install-git-hooks.ps1"
+
+Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "  專案結構初始化完成！" -ForegroundColor Green
 Write-Host "  請編輯 README.md 開始這個專案的開發。" -ForegroundColor Yellow
