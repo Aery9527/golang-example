@@ -112,6 +112,76 @@ class ReleaseNotesScriptTests(unittest.TestCase):
         )
         self.assertEqual(payload["commit_count"], 2)
 
+    def test_collects_breaking_and_unparseable_commits_without_merge_noise(self) -> None:
+        repo = self.make_repo()
+        self.commit(repo, "docs: seed repository")
+        self.run_git(repo, "tag", "v1.0.0")
+        self.commit(
+            repo,
+            "feat(api)!: remove legacy payload",
+            body="BREAKING CHANGE: clients must send the v2 request body",
+        )
+        self.commit(repo, "merge: develop into main")
+        self.commit(repo, "release: v2.0.0")
+        self.commit(repo, "ship the thing")
+
+        self.run_script(repo)
+
+        payload = self.load_json(repo)
+        self.assertTrue(payload["has_breaking"])
+        self.assertEqual(len(payload["breaking_changes"]), 1)
+        self.assertEqual(payload["breaking_changes"][0]["scope"], "api")
+        self.assertEqual(payload["breaking_changes"][0]["summary"], "remove legacy payload")
+        self.assertEqual(
+            payload["breaking_changes"][0]["note"],
+            "clients must send the v2 request body",
+        )
+        self.assertEqual(len(payload["unparseable"]), 1)
+        self.assertEqual(payload["unparseable"][0]["raw_message"], "ship the thing")
+
+        grouped_summaries = [
+            entry["summary"]
+            for entries in payload["groups"].values()
+            for entry in entries
+        ]
+        self.assertNotIn("develop into main", grouped_summaries)
+        self.assertNotIn("v2.0.0", grouped_summaries)
+
+    def test_markdown_mode_writes_grouped_sections_to_stdout(self) -> None:
+        repo = self.make_repo()
+        self.commit(repo, "docs: seed repository")
+        self.run_git(repo, "tag", "v1.0.0")
+        self.commit(repo, "feat(logs): add retention policy")
+        self.commit(repo, "fix(logs): preserve stderr sink")
+
+        completed = self.run_script(repo, "--format=markdown")
+
+        self.assertIn("## Features", completed.stdout)
+        self.assertIn("- logs: add retention policy", completed.stdout)
+        self.assertIn("## Bug Fixes", completed.stdout)
+        self.assertIn("- logs: preserve stderr sink", completed.stdout)
+        self.assertFalse((repo / OUTPUT_PATH).exists())
+
+    def test_invalid_range_surfaces_a_clear_git_error(self) -> None:
+        repo = self.make_repo()
+
+        completed = self.run_script(repo, "v9.9.9..HEAD", check=False)
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertRegex(
+            (completed.stderr or completed.stdout).lower(),
+            r"(unknown revision|ambiguous argument)",
+        )
+
+    def test_non_git_repo_returns_a_friendly_error(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+
+        completed = self.run_script(Path(tempdir.name), check=False)
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("not inside a Git repository", completed.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
