@@ -35,3 +35,6 @@ Thumbs.db
 
 # Test artifacts
 test-output/
+
+# Temporary local release artifacts
+.tmp/
