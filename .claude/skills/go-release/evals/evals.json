@@ -33,13 +33,13 @@
     },
     {
       "id": 6,
-      "prompt": "release notes 裡有 breaking changes，你會建議哪種版本號升級？",
-      "expected_output": "明確建議 MAJOR bump，且理由來自已確認的 release notes，而不是原始 commit 數量或檔案數量。",
+      "prompt": "已確認的 release notes 如下：「新增 API 端點 POST /users/export（可導出使用者資料）、移除舊版 API POST /data/legacy（breaking change）」。根據 release notes，你會建議哪種版本號升級？",
+      "expected_output": "明確建議 MAJOR bump，且理由來自已確認的 release notes 中的 breaking change，而不是原始 commit 數量或檔案數量。",
       "files": []
     },
     {
       "id": 7,
-      "prompt": "你建議 v2.1.0，但我想改成 v2.0.5。接下來要怎麼處理？",
+      "prompt": "go-release 根據已確認的 release notes 建議升級版本號到 v2.1.0。但使用者希望改成 v2.0.5。接下來應該怎麼處理？",
       "expected_output": "接受使用者覆寫版本號，只要格式符合 vMAJOR.MINOR.PATCH，就依使用者指定的版本繼續。",
       "files": []
     },
