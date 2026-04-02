@@ -28,7 +28,7 @@
     {
       "id": 5,
       "prompt": "我即將提交並推送新的錯誤碼常數，請幫我完成這兩個步驟。",
-      "expected_output": "以高層次 Conventional Commit 訊息建立本地 commit，並明確提醒使用者 pre-push hook 將在推送完成前執行 ci-test。",
+      "expected_output": "以高層次 Conventional Commit 訊息建立本地 commit。若接著要實際執行 git push，先檢查 core.hooksPath 是否為 .githooks；若缺少 repo-local hooks，先執行 install-git-hooks 腳本，再 push，並說明 pre-push hook 將執行 ci-test。",
       "files": []
     },
     {
@@ -59,6 +59,12 @@
       "id": 10,
       "prompt": "我在連結工作樹中剛完成本地 commit，但我沒有告訴你來源分支。你接下來會問我什麼？",
       "expected_output": "先詢問三選項工作樹後續選單。不要立即詢問工作樹來自哪個分支，也不要在使用者選擇來源分支 rebase 路徑前就要求提供基礎 commit。",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "這是剛 clone 下來的 repo，我還沒安裝 repo-local Git hooks。請幫我提交並 push 新的錯誤碼常數。",
+      "expected_output": "在實際執行 git push 前先檢查 core.hooksPath；若 repo-local hooks 尚未安裝，先執行對應平台的 install-git-hooks 腳本並重新確認設定，失敗就停止 push。只有在 hooks 可用後才 push，並說明 pre-push 將執行 ci-test。",
       "files": []
     }
   ]
