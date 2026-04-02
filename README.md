@@ -187,6 +187,21 @@ pwsh -File .\scripts\dev-test.ps1 -count=1
 
 若你使用支援 repo skills 的 agent，可參考 [.claude/skills/go-commit/SKILL.md](.claude/skills/go-commit/SKILL.md) 取得一致的 commit boundary 與 commit message workflow。
 
+### Release Workflow
+
+若要將 `develop` 發布到 `main`，請先保持 working tree 乾淨，確認 `develop` 已同步，並先執行 `ci-test`。之後可使用支援 repo skills 的 agent 觸發 `go-release`。
+
+`go-release` 會：
+
+- 驗證目前是正常的 `develop -> main` release，或辨識 `main` 上的 hotfix 路徑
+- 執行 `python scripts/release-notes.py`，將上一個 tag 之後的 commit 收集到 `.tmp/release/raw-commits.json`
+- 在乾淨 context 中濃縮 release notes，再根據確認後的 notes 建議下一個 `vMAJOR.MINOR.PATCH`
+- 以 `git merge --no-ff develop -m "release: vX.Y.Z"` 將 release 併入 `main`，或在 hotfix 路徑直接於 `main` 建立 tag
+- 建立 lightweight tag `vX.Y.Z`
+- 完成後再詢問是否推送 `main` + tags，以及是否把 `main` merge 回 `develop`
+
+`.tmp/` 為本地暫存 artifacts，已加入 `.gitignore`。
+
 [返回開頭](#快速導覽)
 
 ## 作為 Library 使用

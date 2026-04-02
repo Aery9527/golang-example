@@ -13,6 +13,11 @@
 coverage
 coverage.html
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
 # Dependency
 /vendor/
 
@@ -38,3 +43,5 @@ test-output/
 
 # Playwright MCP artifacts
 .playwright-mcp/
+# Temporary local release artifacts
+.tmp/
