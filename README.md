@@ -6,6 +6,7 @@ Go 專案模板（GitHub Template Repository），提供社群標準的專案結
 
 - [快速開始](#快速開始)
 - [初始化腳本說明](#初始化腳本說明)
+- [初始化後的範例流程](#初始化後的範例流程)
 - [專案結構](#專案結構)
 - [開發測試與 Commit Workflow](#開發測試與-commit-workflow)
 - [作為 Library 使用](#作為-library-使用)
@@ -22,8 +23,11 @@ Go 專案模板（GitHub Template Repository），提供社群標準的專案結
 # Linux / macOS / Git Bash
 bash init.sh
 
-# Windows PowerShell
-pwsh init.ps1
+# Windows PowerShell 7+
+pwsh -File .\init.ps1
+
+# Windows PowerShell 5.1
+powershell.exe -File .\init.ps1
 ```
 
 [返回開頭](#快速導覽)
@@ -33,16 +37,38 @@ pwsh init.ps1
 [init.sh](init.sh) 和 [init.ps1](init.ps1) 功能相同：
 
 - 建立下述所有目錄與基礎 `.go` 檔案，已存在的檔案不會被覆蓋
-- 生成 `.gitignore`、`Makefile`、`Dockerfile`、`.env.example`
+- 生成 [cmd/app/main.go](cmd/app/main.go)，以 [internal/logs](internal/logs) 的 `Info` / `ErrorWith` 示範應用程式啟動、失敗與結束 logging
+- 生成 [internal/handler/handler.go](internal/handler/handler.go)、[internal/service/service.go](internal/service/service.go)、[internal/repository/repository.go](internal/repository/repository.go) 的最小範例鏈路，示範 `error` 回傳慣例與 [pkg/errc](pkg/errc) 的錯誤建立/包裝方式
+- 生成 `.gitignore`、`Makefile`、`Dockerfile`、`.env.example` 與必要的 `.gitkeep`
 - 清空 `README.md`，並移除 `docs/superpowers`
 - 初始化完成後，刪除位於 repo root 的 `init.sh` 與 `init.ps1`
+- 若目前目錄是 Git repository，會自動執行 [scripts/install-git-hooks.sh](scripts/install-git-hooks.sh) 或 [scripts/install-git-hooks.ps1](scripts/install-git-hooks.ps1)；若不是，則顯示 `SKIP` 並繼續完成初始化
+
+[返回開頭](#快速導覽)
+
+## 初始化後的範例流程
+
+初始化後的骨架不再只是 `Hello, World!`，而是直接帶出這個 repo 預設的 logging 與 error-handling 風格：
+
+| 檔案 | 角色 | 產生的範例行為 |
+| --- | --- | --- |
+| [cmd/app/main.go](cmd/app/main.go) | 啟動入口 | 組裝 handler / service / repository，並以 `logs.Info` / `logs.ErrorWith` 記錄生命週期 |
+| [internal/handler/handler.go](internal/handler/handler.go) | 邊界層 | 保持 `Handle() error` 介面，將錯誤交回上層統一處理 |
+| [internal/service/service.go](internal/service/service.go) | 服務層 | 以 `errc.ServiceExampleRun.Wrap(err, "run example service")` 包裝下游錯誤 |
+| [internal/repository/repository.go](internal/repository/repository.go) | 資料層 | 以 `errc.RepositoryExampleLoad.New("example repository is not implemented")` 建立根錯誤 |
+| [pkg/errc/code.go](pkg/errc/code.go) | Error code 定義 | 提供 `ServiceExampleRun` 與 `RepositoryExampleLoad` 兩個 example 專用 code |
+
+這樣初始化後的新專案，會直接留下可擴充的 handler → service → repository 骨架，以及 `logs` / `errs` / `errc` 的最小使用範例。
 
 [返回開頭](#快速導覽)
 
 ## 專案結構
 
+以下為 template repository 的主要結構；初始化完成後，repo root 的 [init.sh](init.sh) / [init.ps1](init.ps1) 會自刪，並留下生成後的專案骨架。
+
 ```
 .
+├── .editorconfig          # 編輯器設定（預設 LF；*.ps1 使用 UTF-8 BOM）
 ├── .githooks/             # repo-local Git hooks
 │   └── pre-push
 ├── cmd/app/              # 應用程式進入點
@@ -55,6 +81,7 @@ pwsh init.ps1
 │   ├── service/          # 商業邏輯層
 │   └── repository/       # 資料存取層
 ├── pkg/                  # 可被外部 import 的共用套件
+│   ├── errc/             # error code 與 *errs.Error 建立/包裝 helper
 │   └── logs/             # 日誌公開 API（Configure DSL、re-exports）
 ├── api/                  # API 定義（OpenAPI、protobuf 等）
 ├── build/                # 建置與打包
@@ -74,10 +101,10 @@ pwsh init.ps1
 │   ├── go-test.ps1       # shared Go test runner（PowerShell）
 │   ├── install-git-hooks.sh
 │   ├── install-git-hooks.ps1
-│   ├── init.sh           # 結構初始化（Bash）
-│   └── init.ps1          # 結構初始化（PowerShell）
 ├── .env.example
 ├── .gitignore
+├── init.ps1              # 結構初始化（PowerShell）
+├── init.sh               # 結構初始化（Bash）
 ├── Makefile
 └── go.mod
 ```
@@ -99,6 +126,16 @@ pwsh -File .\scripts\install-git-hooks.ps1
 ```
 
 安裝完成後，local `git push` 會先經過 `pre-push`，並執行 scoped 的 `ci-test`。
+
+### 編輯器設定
+
+repo 內提供 [`.editorconfig`](.editorconfig)：
+
+- 預設文字檔使用 `LF` 與 `UTF-8`
+- `*.ps1` 額外指定為 `UTF-8 with BOM`
+- 這個設定是為了避免含非 ASCII 文字的 PowerShell 腳本，在 Windows PowerShell 5.1 被錯誤解碼
+
+若你需要修改 [init.ps1](init.ps1) 或其他需相容 Windows PowerShell 5.1 的 PowerShell 腳本，請保留這個 encoding 規則。
 
 ### 測試腳本
 
