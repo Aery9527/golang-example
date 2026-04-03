@@ -3,12 +3,19 @@
 ## 快速導覽
 
 - [概覽](#概覽)
-- [檔案總覽](#檔案總覽)
-- [測試與驗證腳本](#測試與驗證腳本)
-- [Git 與 Agent 輔助腳本](#git-與-agent-輔助腳本)
-- [Release 腳本](#release-腳本)
-- [`tests/` 子目錄](#tests-子目錄)
+- [快速查詢](#快速查詢)
+- [腳本詳解](#腳本詳解)
+- [腳本測試](#腳本測試)
 - [常見用法](#常見用法)
+
+**依腳本快速跳轉**
+
+- [ci-test.sh / ci-test.ps1](#ci-test)
+- [dev-test.sh / dev-test.ps1](#dev-test)
+- [go-test.sh / go-test.ps1](#go-test)
+- [install-git-hooks.sh / install-git-hooks.ps1](#install-git-hooks)
+- [link-agent-skills.sh / link-agent-skills.ps1](#link-agent-skills)
+- [release-notes.py](#release-notes)
 
 ## 概覽
 
@@ -16,108 +23,129 @@
 
 1. 測試入口與共用 runner
 2. Git hooks 與 agent skills 輔助工具
-3. release notes 產生器
+3. release notes 資料收集器
 4. 腳本本身的 regression tests
 
-大多數跨平台能力都同時提供 Bash 與 PowerShell 版本；其中 [`go-test.sh`](go-test.sh) / [`go-test.ps1`](go-test.ps1) 是測試 runner 本體，其他 `ci-test` / `dev-test` 多半只是包裝入口。
+如果你只想知道「現在該跑哪支」，先看 [快速查詢](#快速查詢)。如果你要操作 `.agents/skills` 與 [`.claude/skills`](../.claude/skills) 的連結模式、`.gitignore` 同步與清理行為，直接跳到 [link-agent-skills](#link-agent-skills)。
 
 [返回開頭](#快速導覽)
 
-## 檔案總覽
+## 快速查詢
 
-| 路徑 | 類型 | 主要用途 | 備註 |
+| 腳本 | 平台 / 類型 | 主要用途 | 詳細說明 |
 | --- | --- | --- | --- |
-| [ci-test.sh](ci-test.sh) | Bash | 執行 CI 範圍的快速測試 | 包裝 [go-test.sh](go-test.sh) 的 `ci` mode |
-| [ci-test.ps1](ci-test.ps1) | PowerShell | 執行 CI 範圍的快速測試 | 包裝 [go-test.ps1](go-test.ps1) 的 `ci` mode |
-| [dev-test.sh](dev-test.sh) | Bash | 執行開發期較完整的 scoped 測試 | 包裝 [go-test.sh](go-test.sh) 的 `dev` mode |
-| [dev-test.ps1](dev-test.ps1) | PowerShell | 執行開發期較完整的 scoped 測試 | 包裝 [go-test.ps1](go-test.ps1) 的 `dev` mode |
-| [go-test.sh](go-test.sh) | Bash | 真正負責組裝 `go test`、驗證參數、落 test artifacts | 一般由 `ci-test` / `dev-test` 呼叫 |
-| [go-test.ps1](go-test.ps1) | PowerShell | PowerShell 版共用 test runner | 功能與 [go-test.sh](go-test.sh) 對齊 |
-| [install-git-hooks.sh](install-git-hooks.sh) | Bash | 將 repo-local Git hooks 安裝到目前 repo | 設定 `core.hooksPath=.githooks` |
-| [install-git-hooks.ps1](install-git-hooks.ps1) | PowerShell | 安裝 repo-local Git hooks | 設定 `core.hooksPath=.githooks` |
-| [link-agent-skills.sh](link-agent-skills.sh) | Bash | 互動式建立 `.agents/skills` 與 [../.claude/skills](../.claude/skills) 的 symlink | 適合 Git Bash / Unix-like 環境 |
-| [link-agent-skills.ps1](link-agent-skills.ps1) | PowerShell | 互動式建立 `.agents/skills` 與 [../.claude/skills](../.claude/skills) 的 junction | 適合 Windows |
-| [link-agent-skills.md](link-agent-skills.md) | Markdown | 補充說明 `link-agent-skills` 兩支腳本的操作方式 | 細節文件，不是可執行腳本 |
-| [release-notes.py](release-notes.py) | Python | 從 Git history 收集 Conventional Commits，產生 release note 原始資料 | 預設輸出 JSON，也支援 Markdown |
-| [tests/](tests) | 目錄 | 放腳本層級的 regression tests | 目前包含 `release-notes` 與 init template 測試 |
+| [ci-test.sh](ci-test.sh) / [ci-test.ps1](ci-test.ps1) | Bash / PowerShell | 跑 pre-push 同級的快速 scoped tests | [ci-test](#ci-test) |
+| [dev-test.sh](dev-test.sh) / [dev-test.ps1](dev-test.ps1) | Bash / PowerShell | 跑開發期較完整的 scoped tests 與 coverage | [dev-test](#dev-test) |
+| [go-test.sh](go-test.sh) / [go-test.ps1](go-test.ps1) | Bash / PowerShell | 真正組裝 `go test`、寫 artifacts、驗證參數 | [go-test](#go-test) |
+| [install-git-hooks.sh](install-git-hooks.sh) / [install-git-hooks.ps1](install-git-hooks.ps1) | Bash / PowerShell | 安裝 repo-local Git hooks，設定 `core.hooksPath=.githooks` | [install-git-hooks](#install-git-hooks) |
+| [link-agent-skills.sh](link-agent-skills.sh) / [link-agent-skills.ps1](link-agent-skills.ps1) | Bash / PowerShell | 將 `.agents/skills` 對齊到 [`.claude/skills`](../.claude/skills) | [link-agent-skills](#link-agent-skills) |
+| [release-notes.py](release-notes.py) | Python | 收集 Conventional Commits，輸出 release notes 原始資料或 Markdown | [release-notes](#release-notes) |
+| [tests/test_release_notes.py](tests/test_release_notes.py) | Python test | 驗證 [release-notes.py](release-notes.py) 的分類與輸出格式 | [腳本測試](#腳本測試) |
+| [tests/test_init_templates.py](tests/test_init_templates.py) | Python test | 驗證 [../init.sh](../init.sh) / [../init.ps1](../init.ps1) 的模板與 prune 行為 | [腳本測試](#腳本測試) |
 
 [返回開頭](#快速導覽)
 
-## 測試與驗證腳本
+## 腳本詳解
 
-### `ci-test`：快速驗證入口
+### ci-test
 
-[`ci-test.sh`](ci-test.sh) 與 [`ci-test.ps1`](ci-test.ps1) 都只是薄包裝：
+相關檔案：[ci-test.sh](ci-test.sh)、[ci-test.ps1](ci-test.ps1)
 
-- 固定用 `ci` mode 呼叫共用 runner
+`ci-test` 是最薄的一層入口，固定用 `ci` mode 呼叫 [go-test.sh](go-test.sh) / [go-test.ps1](go-test.ps1)：
+
 - 測試目標固定為 `./internal/...` 與 `./pkg/...`
 - 會附加 `-short`
 - 不產生 coverage artifacts
+- 適合 pre-push gate 與快速 smoke check
 
-適合：
+### dev-test
 
-- pre-push gate
-- 改小範圍程式後想先快速確認沒有明顯 regression
+相關檔案：[dev-test.sh](dev-test.sh)、[dev-test.ps1](dev-test.ps1)
 
-### `dev-test`：開發期驗證入口
-
-[`dev-test.sh`](dev-test.sh) 與 [`dev-test.ps1`](dev-test.ps1) 也都是共用 runner 的包裝入口，但使用 `dev` mode：
+`dev-test` 也是 [go-test.sh](go-test.sh) / [go-test.ps1](go-test.ps1) 的包裝入口，但使用 `dev` mode：
 
 - 不附加 `-short`
 - 會產生 coverage profile 與 coverage summary
 - 同樣只測 `./internal/...` 與 `./pkg/...`
+- 適合開發中想多看一層 coverage 與較完整輸出時使用
 
-適合：
+### go-test
 
-- 開發中需要看 coverage
-- 想比 `ci-test` 更完整地驗證目前修改
+相關檔案：[go-test.sh](go-test.sh)、[go-test.ps1](go-test.ps1)
 
-### `go-test`：共用 runner 本體
-
-[`go-test.sh`](go-test.sh) 與 [`go-test.ps1`](go-test.ps1) 負責真正的 runner 邏輯：
+`go-test` 是共用 runner 本體，負責真正的測試 orchestration：
 
 - 清空並重建 `test-output/<mode>-test/`
 - 固定測試 scope 為 `./internal/...` 與 `./pkg/...`
-- 驗證 extra args，避免不合法用法（例如 `-args`、自訂 `-coverprofile`、超出 scope 的 `-coverpkg`）
+- 驗證 extra args，避免不合法用法，例如 `-args`、自訂 `-coverprofile` 或超出 scope 的 `-coverpkg`
 - 將實際執行命令寫入 `command.txt`
-- 將 exit code 寫入 `exit-code.txt`
-- 根據 `-json` 決定 standard output 寫入 `stdout.log` 或 `stdout.jsonl`
-- 永遠保留 `stderr.log`
-- `dev` mode 會額外產生 `coverage.out` 與 `coverage-summary.txt`
+- 永遠保留 `exit-code.txt` 與 `stderr.log`
+- 依 `-json` 決定將 standard output 寫入 `stdout.log` 或 `stdout.jsonl`
+- `dev` mode 額外產生 `coverage.out` 與 `coverage-summary.txt`
 
-如果只是日常開發，通常直接用 [`ci-test.sh`](ci-test.sh) / [`ci-test.ps1`](ci-test.ps1) 或 [`dev-test.sh`](dev-test.sh) / [`dev-test.ps1`](dev-test.ps1) 就夠了，不需要直接手敲 [`go-test.sh`](go-test.sh) / [`go-test.ps1`](go-test.ps1)。
+日常開發通常直接跑 [ci-test.sh](ci-test.sh) / [ci-test.ps1](ci-test.ps1) 或 [dev-test.sh](dev-test.sh) / [dev-test.ps1](dev-test.ps1) 就夠了，不需要直接手敲 `go-test`。
 
-[返回開頭](#快速導覽)
+### install-git-hooks
 
-## Git 與 Agent 輔助腳本
+相關檔案：[install-git-hooks.sh](install-git-hooks.sh)、[install-git-hooks.ps1](install-git-hooks.ps1)
 
-### 安裝 repo-local Git hooks
-
-[`install-git-hooks.sh`](install-git-hooks.sh) 與 [`install-git-hooks.ps1`](install-git-hooks.ps1) 的責任很單純：
+這兩支腳本的責任很單純：
 
 - 確認目前在 Git repository 內
 - 設定 local Git config：`core.hooksPath=.githooks`
 
-這樣之後 `git push` 時，Git 就會使用 [../.githooks/pre-push](../.githooks/pre-push)。
+完成後，`git push` 會走 [../.githooks/pre-push](../.githooks/pre-push)，也就是 repo 自己維護的 pre-push gate。
 
-### 連結 agent skills
+### link-agent-skills
 
-[`link-agent-skills.sh`](link-agent-skills.sh) 與 [`link-agent-skills.ps1`](link-agent-skills.ps1) 用來把 [../.claude/skills](../.claude/skills) 暴露到 `.agents/skills`：
+相關檔案：[link-agent-skills.sh](link-agent-skills.sh)、[link-agent-skills.ps1](link-agent-skills.ps1)
 
-- Bash 版本建立 **symlink**
-- PowerShell 版本建立 **junction**
-- 兩者都提供互動式選單
-- 兩者都會同步維護 `.gitignore`
-- 支援整個目錄單一連結，或逐個 skill 建立連結
-- 支援解除連結與清理失效項目
+`link-agent-skills` 讓 `.agents/skills` 與 [`.claude/skills`](../.claude/skills) 維持一致，同時保留不同工具鏈對 skills 路徑命名的使用習慣。兩支腳本都會根據自己的檔案位置定位 repo root，所以只要用正確路徑呼叫，從 repo 任意目錄執行都可以。
 
-若想看更完整的操作說明與模式差異，直接看 [`link-agent-skills.md`](link-agent-skills.md)。
+這兩支腳本都支援：
 
-[返回開頭](#快速導覽)
+- 互動式選單
+- 自動同步 [`.gitignore`](../.gitignore) 條目
+- 清理失效的 skill 連結
+- 單一整目錄連結或逐 skill 連結
 
-## Release 腳本
+執行方式：
 
-[`release-notes.py`](release-notes.py) 是 release workflow 的資料收集器。它會讀 Git history，挑出 Conventional Commits，並做以下事情：
+```bash
+bash ./scripts/link-agent-skills.sh
+```
+
+```powershell
+pwsh -File .\scripts\link-agent-skills.ps1
+```
+
+連結模式如下：
+
+| 模式 | Bash 行為 | PowerShell 行為 | 適合情境 |
+| --- | --- | --- | --- |
+| `0` | 取消 | 取消 | 只想離開選單 |
+| `1` | 將 `.agents/skills` 建成單一 symlink 指向 [`.claude/skills`](../.claude/skills) | 將 `.agents/skills` 建成單一 junction 指向 [`.claude/skills`](../.claude/skills) | 想讓 `.agents/skills` 完全鏡像來源目錄 |
+| `2` | 在 `.agents/skills/` 下逐一建立 per-skill symlink | 在 `.agents/skills/` 下逐一建立 per-skill junction | 想保留 `.agents/skills/` 目錄本體，只同步各 skill |
+| `3` | 移除腳本建立的整體 symlink 或 per-skill symlink，並清理 [`.gitignore`](../.gitignore) | 移除腳本建立的整體 junction 或 per-skill junction，並清理 [`.gitignore`](../.gitignore) | 想回復未連結狀態 |
+
+模式選擇建議：
+
+- 想要 `.agents/skills/` 完全鏡像 [`.claude/skills`](../.claude/skills)：選 **Mode 1**
+- 想保留 `.agents/skills/` 目錄本體，只對每個 skill 建立個別連結：選 **Mode 2**
+- 想回復未連結狀態並清掉腳本建立的 ignore 條目：選 **Mode 3**
+
+`.gitignore` 行為：
+
+- **Mode 1 / Mode 2**：自動加入對應的 `.agents/skills` 路徑
+- **Mode 3**：移除腳本建立的對應條目
+- 已存在的條目不會重複寫入
+- Mode 2 若遇到「已存在但不是連結」的目標，會保留原物件並略過該 skill
+
+### release-notes
+
+相關檔案：[release-notes.py](release-notes.py)
+
+`release-notes.py` 是 release workflow 的資料收集器。它會讀 Git history，挑出 Conventional Commits，並做以下事情：
 
 - 自動解析上一個 tag，或接受手動指定的 revision range
 - 忽略 `Merge ...`、`merge:`、`release:` 這類 release noise
@@ -130,16 +158,16 @@
 
 [返回開頭](#快速導覽)
 
-## `tests/` 子目錄
+## 腳本測試
 
 [`tests/`](tests) 目前放兩支 Python `unittest`：
 
 | 檔案 | 主要用途 | 備註 |
 | --- | --- | --- |
-| [tests/test_release_notes.py](tests/test_release_notes.py) | 驗證 [`release-notes.py`](release-notes.py) 在暫存 Git repo 中的分類、tag range、breaking change 與 Markdown 輸出行為 | 這支測試會保留在 init 後的新 repo |
-| [tests/test_init_templates.py](tests/test_init_templates.py) | 驗證 root [../init.sh](../init.sh) / [../init.ps1](../init.ps1) 的 template 行為，例如 generated `main.go` 流程、PowerShell 非 git 目錄執行、`scripts/tests` prune 邏輯 | 這是 template 維護用測試；init 完成後，新 repo 的 `scripts/tests/` 只保留 [tests/test_release_notes.py](tests/test_release_notes.py) |
+| [tests/test_release_notes.py](tests/test_release_notes.py) | 驗證 [release-notes.py](release-notes.py) 在暫存 Git repo 中的分類、tag range、breaking change 與 Markdown 輸出行為 | 這支測試會保留在 init 後的新 repo |
+| [tests/test_init_templates.py](tests/test_init_templates.py) | 驗證 root [../init.sh](../init.sh) / [../init.ps1](../init.ps1) 的模板行為，例如 generated `main.go` 流程、PowerShell 非 Git 目錄執行、`scripts/tests` prune 邏輯 | 這是 template 維護用測試；init 完成後，新 repo 的 [tests/](tests) 只保留 [tests/test_release_notes.py](tests/test_release_notes.py) |
 
-如果你要驗證腳本層級的回歸行為，優先從這個目錄的測試開始。
+如果你在改 `scripts/` 或 `init` 相關流程，這裡是最直接的回歸入口。
 
 [返回開頭](#快速導覽)
 
@@ -148,13 +176,11 @@
 ### 快速測試
 
 ```bash
-# Bash / Git Bash
 bash ./scripts/ci-test.sh
 bash ./scripts/dev-test.sh -count=1
 ```
 
 ```powershell
-# PowerShell
 pwsh -File .\scripts\ci-test.ps1
 pwsh -File .\scripts\dev-test.ps1 -count=1
 ```
@@ -169,7 +195,17 @@ bash ./scripts/install-git-hooks.sh
 pwsh -File .\scripts\install-git-hooks.ps1
 ```
 
-### 產生 release notes 原始資料
+### 連結 agent skills
+
+```bash
+bash ./scripts/link-agent-skills.sh
+```
+
+```powershell
+pwsh -File .\scripts\link-agent-skills.ps1
+```
+
+### 產生 release notes
 
 ```bash
 python ./scripts/release-notes.py
