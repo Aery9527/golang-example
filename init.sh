@@ -68,7 +68,6 @@ func main() {
 		logs.ErrorWith("application stopped", func() (error, []any) {
 			return err, []any{"component", "app"}
 		})
-		return
 	}
 
 	logs.Info("application finished", func() []any {
@@ -235,6 +234,11 @@ echo "  DELETE docs/superpowers"
 rm -f "init.sh" "init.ps1"
 echo "  DELETE init.sh"
 echo "  DELETE init.ps1"
+
+if [ -d "scripts/tests" ]; then
+  find "scripts/tests" -mindepth 1 -maxdepth 1 ! -name "test_release_notes.py" -exec rm -rf {} +
+  echo "  CLEAN scripts/tests (kept test_release_notes.py)"
+fi
 
 echo ""
 if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then

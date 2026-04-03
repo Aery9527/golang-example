@@ -42,6 +42,7 @@ powershell.exe -File .\init.ps1
 - 生成 `.gitignore`、`Makefile`、`Dockerfile`、`.env.example` 與必要的 `.gitkeep`
 - 清空 `README.md`，並移除 `docs/superpowers`
 - 初始化完成後，刪除位於 repo root 的 `init.sh` 與 `init.ps1`
+- 清理 `scripts/tests/`，僅保留 `scripts/tests/test_release_notes.py`
 - 若目前目錄是 Git repository，會自動執行 [scripts/install-git-hooks.sh](scripts/install-git-hooks.sh) 或 [scripts/install-git-hooks.ps1](scripts/install-git-hooks.ps1)；若不是，則顯示 `SKIP` 並繼續完成初始化
 
 [返回開頭](#快速導覽)

@@ -78,7 +78,6 @@ func main() {
 		logs.ErrorWith("application stopped", func() (error, []any) {
 			return err, []any{"component", "app"}
 		})
-		return
 	}
 
 	logs.Info("application finished", func() []any {
@@ -268,9 +267,24 @@ foreach ($f in $scriptFiles) {
     }
 }
 
+if (Test-Path "scripts/tests") {
+    Get-ChildItem -Path "scripts/tests" -Force |
+        Where-Object { $_.Name -ne "test_release_notes.py" } |
+        Remove-Item -Recurse -Force
+    Write-Host "  CLEAN scripts/tests (kept test_release_notes.py)"
+}
+
 Write-Host ""
-git -C $RootDir rev-parse --is-inside-work-tree *> $null
-if ($LASTEXITCODE -eq 0) {
+$previousErrorActionPreference = $ErrorActionPreference
+$gitProbeExitCode = 1
+try {
+    $ErrorActionPreference = "Continue"
+    git -C $RootDir rev-parse --is-inside-work-tree > $null 2> $null
+    $gitProbeExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
+if ($gitProbeExitCode -eq 0) {
     & "$RootDir/scripts/install-git-hooks.ps1"
 } else {
     Write-Host "  SKIP  scripts/install-git-hooks.ps1 (not a git repository)" -ForegroundColor Yellow
