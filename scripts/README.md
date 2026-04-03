@@ -41,7 +41,6 @@
 | [link-agent-skills.sh](link-agent-skills.sh) / [link-agent-skills.ps1](link-agent-skills.ps1) | Bash / PowerShell | 將 `.agents/skills` 對齊到 [`.claude/skills`](../.claude/skills) | [link-agent-skills](#link-agent-skills) |
 | [release-notes.py](release-notes.py) | Python | 收集 Conventional Commits，輸出 release notes 原始資料或 Markdown | [release-notes](#release-notes) |
 | [tests/test_release_notes.py](tests/test_release_notes.py) | Python test | 驗證 [release-notes.py](release-notes.py) 的分類與輸出格式 | [腳本測試](#腳本測試) |
-| [tests/test_init_templates.py](tests/test_init_templates.py) | Python test | 驗證 [../init.sh](../init.sh) / [../init.ps1](../init.ps1) 的模板與 prune 行為 | [腳本測試](#腳本測試) |
 
 [返回開頭](#快速導覽)
 
@@ -160,14 +159,13 @@ pwsh -File .\scripts\link-agent-skills.ps1
 
 ## 腳本測試
 
-[`tests/`](tests) 目前放兩支 Python `unittest`：
+[`tests/`](tests) 在初始化完成後會保留下列腳本層級 `unittest`：
 
 | 檔案 | 主要用途 | 備註 |
 | --- | --- | --- |
 | [tests/test_release_notes.py](tests/test_release_notes.py) | 驗證 [release-notes.py](release-notes.py) 在暫存 Git repo 中的分類、tag range、breaking change 與 Markdown 輸出行為 | 這支測試會保留在 init 後的新 repo |
-| [tests/test_init_templates.py](tests/test_init_templates.py) | 驗證 root [../init.sh](../init.sh) / [../init.ps1](../init.ps1) 的模板行為，例如 generated `main.go` 流程、PowerShell 非 Git 目錄執行、`scripts/tests` prune 邏輯 | 這是 template 維護用測試；init 完成後，新 repo 的 [tests/](tests) 只保留 [tests/test_release_notes.py](tests/test_release_notes.py) |
 
-如果你在改 `scripts/` 或 `init` 相關流程，這裡是最直接的回歸入口。
+如果你要驗證初始化後 repo 會保留的腳本測試內容，這裡是最直接的入口。
 
 [返回開頭](#快速導覽)
 

@@ -1,3 +1,10 @@
+"""Template-only regression tests for init scaffolding.
+
+This file exists only in the template repository. The init scripts prune it
+from generated repositories, so post-init docs should describe only the script
+tests that remain after initialization.
+"""
+
 import re
 import shutil
 import subprocess
