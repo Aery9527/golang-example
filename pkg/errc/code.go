@@ -34,7 +34,11 @@ func (c Code) Wrapf(err error, format string, args ...any) *errs.Error {
 const (
 	// service — 業務服務層錯誤
 	ServiceDBTimeout    Code = "service.db.timeout"    // 資料庫操作逾時
-	ServiceDBConnection Code = "service.db.connection"  // 資料庫連線失敗
+	ServiceDBConnection Code = "service.db.connection" // 資料庫連線失敗
+	ServiceExampleRun   Code = "service.example.run"   // Example 服務執行失敗
+
+	// repository — 資料存取層錯誤
+	RepositoryExampleLoad Code = "repository.example.load" // Example repository 載入失敗
 
 	// internal — 內部不可預期錯誤
 	InternalUnknown Code = "internal.unknown" // 未分類的內部錯誤

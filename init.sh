@@ -46,10 +46,34 @@ echo "Directories created."
 # ── cmd/app/main.go ──
 write_file "cmd/app/main.go" 'package main
 
-import "fmt"
+import (
+	"golan-example/internal/handler"
+	"golan-example/internal/logs"
+	"golan-example/internal/repository"
+	"golan-example/internal/service"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	h := handler.NewExampleHandler(
+		service.NewExampleService(
+			repository.NewExampleRepository(),
+		),
+	)
+
+	logs.Info("application starting", func() []any {
+		return []any{"component", "app"}
+	})
+
+	if err := h.Handle(); err != nil {
+		logs.ErrorWith("application stopped", func() (error, []any) {
+			return err, []any{"component", "app"}
+		})
+		return
+	}
+
+	logs.Info("application finished", func() []any {
+		return []any{"component", "app"}
+	})
 }'
 
 # ── internal/config/config.go ──
@@ -64,34 +88,56 @@ type Config struct {
 # ── internal/handler/handler.go ──
 write_file "internal/handler/handler.go" 'package handler
 
-import "net/http"
+import "golan-example/internal/service"
 
-// HealthCheck responds with a simple health status.
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+type ExampleHandler struct {
+	service *service.ExampleService
+}
+
+func NewExampleHandler(service *service.ExampleService) *ExampleHandler {
+	return &ExampleHandler{service: service}
+}
+
+func (h *ExampleHandler) Handle() error {
+	return h.service.Run()
 }'
 
 # ── internal/service/service.go ──
 write_file "internal/service/service.go" 'package service
 
-// Service contains business logic.
-type Service struct{}
+import (
+	"golan-example/internal/repository"
+	"golan-example/pkg/errc"
+)
 
-// NewService creates a new Service.
-func NewService() *Service {
-	return &Service{}
+type ExampleService struct {
+	repository *repository.ExampleRepository
+}
+
+func NewExampleService(repository *repository.ExampleRepository) *ExampleService {
+	return &ExampleService{repository: repository}
+}
+
+func (s *ExampleService) Run() error {
+	if err := s.repository.Load(); err != nil {
+		return errc.ServiceExampleRun.Wrap(err, "run example service")
+	}
+	return nil
 }'
 
 # ── internal/repository/repository.go ──
 write_file "internal/repository/repository.go" 'package repository
 
-// Repository handles data access.
-type Repository struct{}
+import "golan-example/pkg/errc"
 
-// NewRepository creates a new Repository.
-func NewRepository() *Repository {
-	return &Repository{}
+type ExampleRepository struct{}
+
+func NewExampleRepository() *ExampleRepository {
+	return &ExampleRepository{}
+}
+
+func (r *ExampleRepository) Load() error {
+	return errc.RepositoryExampleLoad.New("example repository is not implemented")
 }'
 
 # ── .env.example ──
@@ -191,7 +237,11 @@ echo "  DELETE init.sh"
 echo "  DELETE init.ps1"
 
 echo ""
-bash "$SCRIPT_DIR/scripts/install-git-hooks.sh"
+if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  bash "$ROOT_DIR/scripts/install-git-hooks.sh"
+else
+  echo "  SKIP  scripts/install-git-hooks.sh (not a git repository)"
+fi
 
 echo ""
 echo "================================================"
