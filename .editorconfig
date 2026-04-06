@@ -1,0 +1,10 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+# Windows PowerShell 5.1 can misread non-ASCII UTF-8 scripts without a BOM.
+[*.ps1]
+charset = utf-8-bom

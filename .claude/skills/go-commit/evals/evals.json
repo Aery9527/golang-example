@@ -1,0 +1,71 @@
+{
+  "skill_name": "go-commit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我的工作樹混合了新的錯誤碼常數和 README 工作流程更新。我很趕時間，請幫我決定提交邊界和 commit 訊息。",
+      "expected_output": "拒絕將不相關的工作壓縮成一個 commit，並提議各自對應高層次意圖的獨立 commit 訊息。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我只想為新的 pre-push 快速測試工作流程建立一個本地 commit，請告訴我你會如何提交。",
+      "expected_output": "保持 commit 在本地，除非明確要求否則不執行測試，並使用高層次、以 CI 為導向的 Conventional Commit 訊息。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "我修改了 writer.go 和 rotate.go，讓舊的 rotated 檔案可以自動清理。請撰寫 Conventional Commit 訊息。",
+      "expected_output": "回傳一個描述 logging 行為變更的 release note 就緒訊息，而非描述檔案編輯的訊息。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "請快速給我這些變更的 Conventional Commit 訊息：writer.go 和 rotate.go 被修改了。",
+      "expected_output": "察覺到 prompt 沒有提供任何行為情境，在撰寫 commit 訊息前先問一個明確的問題以了解意圖。不要僅從檔案名稱編造 subject。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我即將提交並推送新的錯誤碼常數，請幫我完成這兩個步驟。",
+      "expected_output": "以高層次 Conventional Commit 訊息建立本地 commit。若接著要實際執行 git push，先檢查 core.hooksPath 是否為 .githooks；若缺少 repo-local hooks，先執行 install-git-hooks 腳本，再 push，並說明 pre-push hook 將執行 ci-test。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "我在 branch feature/go-commit-workflow 的連結 git 工作樹中，此工作樹是從 planning/go-commit-workflow 建立的。請幫我完成本地 commit，並告訴我提交後你會立即問我什麼。",
+      "expected_output": "識別連結工作樹流程，並在最後詢問是否要 rebase 到 planning/go-commit-workflow、rebase 到其他分支，或將目前分支推送到遠端。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "我在 branch feature/go-commit-workflow 的連結 git 工作樹中，但我沒有告訴你它原本來自哪個分支。我現在只想完成本地 commit 流程。提交後你會立即問我什麼？",
+      "expected_output": "識別連結工作樹流程，提供三個後續步驟選項，且不編造來源分支名稱。若使用者之後選擇來源分支 rebase 路徑，應詢問要使用哪個來源分支。",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "git worktree list 顯示主要 checkout 在 planning/go-commit-workflow，連結工作樹在 feature/go-commit-workflow，但我沒有告訴你連結工作樹最初來自哪個分支。本地 commit 後你會問我什麼？",
+      "expected_output": "將連結工作樹視為真實的，但不因主要 checkout 目前使用 planning/go-commit-workflow 就將其視為來源分支。後續問題應保持來源分支選項為通用描述，直到使用者明確命名為止。",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "我在普通分支上，不是連結工作樹。請幫我建立一個本地 docs commit 然後停止。",
+      "expected_output": "提供本地 commit 流程，不加入工作樹專屬的 rebase 或推送後續選單。",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "我在連結工作樹中剛完成本地 commit，但我沒有告訴你來源分支。你接下來會問我什麼？",
+      "expected_output": "先詢問三選項工作樹後續選單。不要立即詢問工作樹來自哪個分支，也不要在使用者選擇來源分支 rebase 路徑前就要求提供基礎 commit。",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "這是剛 clone 下來的 repo，我還沒安裝 repo-local Git hooks。請幫我提交並 push 新的錯誤碼常數。",
+      "expected_output": "在實際執行 git push 前先檢查 core.hooksPath；若 repo-local hooks 尚未安裝，先執行對應平台的 install-git-hooks 腳本並重新確認設定，失敗就停止 push。只有在 hooks 可用後才 push，並說明 pre-push 將執行 ci-test。",
+      "files": []
+    }
+  ]
+}

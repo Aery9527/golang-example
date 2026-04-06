@@ -56,10 +56,33 @@ Write-Host "Directories created."
 Write-FileIfNotExists "cmd/app/main.go" @"
 package main
 
-import "fmt"
+import (
+	"golan-example/internal/handler"
+	"golan-example/internal/logs"
+	"golan-example/internal/repository"
+	"golan-example/internal/service"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	h := handler.NewExampleHandler(
+		service.NewExampleService(
+			repository.NewExampleRepository(),
+		),
+	)
+
+	logs.Info("application starting", func() []any {
+		return []any{"component", "app"}
+	})
+
+	if err := h.Handle(); err != nil {
+		logs.ErrorWith("application stopped", func() (error, []any) {
+			return err, []any{"component", "app"}
+		})
+	}
+
+	logs.Info("application finished", func() []any {
+		return []any{"component", "app"}
+	})
 }
 "@
 
@@ -78,12 +101,18 @@ type Config struct {
 Write-FileIfNotExists "internal/handler/handler.go" @"
 package handler
 
-import "net/http"
+import "golan-example/internal/service"
 
-// HealthCheck responds with a simple health status.
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+type ExampleHandler struct {
+	service *service.ExampleService
+}
+
+func NewExampleHandler(service *service.ExampleService) *ExampleHandler {
+	return &ExampleHandler{service: service}
+}
+
+func (h *ExampleHandler) Handle() error {
+	return h.service.Run()
 }
 "@
 
@@ -91,12 +120,24 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 Write-FileIfNotExists "internal/service/service.go" @"
 package service
 
-// Service contains business logic.
-type Service struct{}
+import (
+	"golan-example/internal/repository"
+	"golan-example/pkg/errc"
+)
 
-// NewService creates a new Service.
-func NewService() *Service {
-	return &Service{}
+type ExampleService struct {
+	repository *repository.ExampleRepository
+}
+
+func NewExampleService(repository *repository.ExampleRepository) *ExampleService {
+	return &ExampleService{repository: repository}
+}
+
+func (s *ExampleService) Run() error {
+	if err := s.repository.Load(); err != nil {
+		return errc.ServiceExampleRun.Wrap(err, "run example service")
+	}
+	return nil
 }
 "@
 
@@ -104,12 +145,16 @@ func NewService() *Service {
 Write-FileIfNotExists "internal/repository/repository.go" @"
 package repository
 
-// Repository handles data access.
-type Repository struct{}
+import "golan-example/pkg/errc"
 
-// NewRepository creates a new Repository.
-func NewRepository() *Repository {
-	return &Repository{}
+type ExampleRepository struct{}
+
+func NewExampleRepository() *ExampleRepository {
+	return &ExampleRepository{}
+}
+
+func (r *ExampleRepository) Load() error {
+	return errc.RepositoryExampleLoad.New("example repository is not implemented")
 }
 "@
 
@@ -220,6 +265,29 @@ foreach ($f in $scriptFiles) {
         Remove-Item -Path $f -Force
         Write-Host "  DELETE $f"
     }
+}
+
+if (Test-Path "scripts/tests") {
+    Get-ChildItem -Path "scripts/tests" -Force |
+        Where-Object { $_.Name -ne "test_release_notes.py" } |
+        Remove-Item -Recurse -Force
+    Write-Host "  CLEAN scripts/tests (kept test_release_notes.py)"
+}
+
+Write-Host ""
+$previousErrorActionPreference = $ErrorActionPreference
+$gitProbeExitCode = 1
+try {
+    $ErrorActionPreference = "Continue"
+    git -C $RootDir rev-parse --is-inside-work-tree > $null 2> $null
+    $gitProbeExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
+if ($gitProbeExitCode -eq 0) {
+    & "$RootDir/scripts/install-git-hooks.ps1"
+} else {
+    Write-Host "  SKIP  scripts/install-git-hooks.ps1 (not a git repository)" -ForegroundColor Yellow
 }
 
 Write-Host ""

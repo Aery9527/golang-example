@@ -13,6 +13,11 @@
 coverage
 coverage.html
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
 # Dependency
 /vendor/
 
@@ -29,3 +34,17 @@ Thumbs.db
 # Env
 .env
 *.env.local
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Worktrees
+.worktrees/
+
+# Test artifacts
+test-output/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+# Temporary local release artifacts
+.tmp/
