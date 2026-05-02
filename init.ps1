@@ -249,10 +249,40 @@ foreach ($d in @("api", "deployments", "docs", "test/integration")) {
     Write-FileIfNotExists "$d/.gitkeep" ""
 }
 
-# ── 清理：清空 README.md 並移除初始化腳本 ──
+# ── 清理：寫入 README.md 骨架說明並移除初始化腳本 ──
 Write-Host ""
-Set-Content -Path "README.md" -Value "" -Encoding UTF8 -NoNewline
-Write-Host "  CLEAR  README.md"
+$readmeContent = @'
+# <專案名稱>
+
+> ⚠️ **TODO**：此 README 由初始化腳本自動產生，請將整份內容替換為本專案的具體說明。
+
+---
+
+## 初始化骨架說明
+
+以下檔案由初始化腳本產生，用於展示此 template 預設的 logging 與 error-handling 風格。
+理解後請依專案需求修改或移除。
+
+### 範例鏈路
+
+| 檔案 | 角色 | 展示內容 |
+| --- | --- | --- |
+| [`cmd/app/main.go`](cmd/app/main.go) | 應用程式入口 | 組裝 handler / service / repository；以 `logs.Info` / `logs.ErrorWith` 記錄生命週期事件 |
+| [`internal/handler/handler.go`](internal/handler/handler.go) | 邊界層 | `Handle() error` 介面；錯誤直接回傳上層，不在此包裝 |
+| [`internal/service/service.go`](internal/service/service.go) | 服務層 | `errc.ServiceExampleRun.Wrap(err, "...")` 示範下游錯誤包裝慣例 |
+| [`internal/repository/repository.go`](internal/repository/repository.go) | 資料層 | `errc.RepositoryExampleLoad.New("...")` 示範根錯誤建立 |
+| [`internal/config/config.go`](internal/config/config.go) | 設定結構 | 最小 `Config` struct 骨架 |
+| [`pkg/errc/code.go`](pkg/errc/code.go) | Error code 定義 | `ServiceExampleRun`、`RepositoryExampleLoad` 為 example 專用 code，實作時以業務 code 取代 |
+
+### 為什麼有這些 example 檔案？
+
+- **展示錯誤層次**：根錯誤在 repository 層建立，向上層層 Wrap，使 stack trace 與 error chain 完整呈現
+- **展示 logging 時機**：僅在 `main()` 記錄生命週期事件，業務層保持 pure error return
+- **展示命名慣例**：`ExampleHandler` / `ExampleService` / `ExampleRepository` 作為命名範本，實作時以具體業務名稱取代
+
+'@
+Set-Content -Path "README.md" -Value $readmeContent -Encoding UTF8 -NoNewline
+Write-Host "  WRITE  README.md"
 
 if (Test-Path "docs/superpowers") {
     Remove-Item -Path "docs/superpowers" -Recurse -Force
